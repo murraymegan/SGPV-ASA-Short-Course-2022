@@ -33,6 +33,8 @@ data(leukstats)
 
 # Part I
 
+## SGPV R Package
+
 <!-- install.packages("devtools") -->
 <!-- devtools::install_github("weltybiostat/sgpv") -->
 
@@ -71,6 +73,12 @@ sgpvalue(est.lo=0.36, est.hi=26.92, null.lo=0.9, null.hi=1.11)
 sgpvalue(est.lo=0.95, est.hi=1.11, null.lo=0.9, null.hi=1.11)
 sgpvalue(est.lo=0.09, est.hi=1.59, null.lo=0.9, null.hi=1.11)
 
+```
+
+## Plots
+
+```{r}
+
 ##########################
 ###### Leukemia Example
 
@@ -87,6 +95,14 @@ plotsgpv(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
 axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
 	base=10),2),labels=c("1/1000","1/100","1/10","1/2",1,2,10,100,1000),
 	las=2)
+```
+
+# Part II
+
+## SGPV False Discovery Risk
+
+```{r}
+
 
 ##########################
 ###### FDR rates
@@ -100,8 +116,6 @@ fdrisk(sgpval = 1,  null.lo = log(1/1.5), null.hi = log(1.5),  std.err = 0.15,  
 ##
 #
 ```
-
-# Part II
 
 ## FDRestimation
 
