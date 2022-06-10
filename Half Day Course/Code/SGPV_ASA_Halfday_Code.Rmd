@@ -44,6 +44,8 @@ data(leukstats)
 ##########################
 ###### BOMAMI Trial
 
+# link??
+
 ## OR
 sgpvalue(est.lo=0.967, est.hi=7.286, null.lo=0.9, null.hi=1.11)
 
@@ -75,6 +77,12 @@ sgpvalue(est.lo=0.09, est.hi=1.59, null.lo=0.9, null.hi=1.11)
 
 ```
 
+ ?tsum.test in the BSDA package. For 
+ 
+ https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd 
+ 
+ 50 observations a piece
+
 ## Plots
 
 ```{r}
@@ -98,6 +106,17 @@ axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
 ```
 
 # Part II
+
+6 properties- load functions
+study planning
+
+null.delta-scalar 1/2
+n-scalar 10
+theta-scalar 1
+
+theta0-0
+sigma-1
+alpha-0.05
 
 ## SGPV False Discovery Risk
 
