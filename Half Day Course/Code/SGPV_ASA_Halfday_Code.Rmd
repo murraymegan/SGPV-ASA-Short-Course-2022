@@ -81,6 +81,10 @@ sgpvalue(est.lo=0.09, est.hi=1.59, null.lo=0.9, null.hi=1.11)
  
  https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd 
  
+ https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd
+ 
+ https://stackoverflow.com/questions/5526922/r-t-test-from-n-mean-sd
+ 
  50 observations a piece
 
 ## Plots
