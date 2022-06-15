@@ -1,9 +1,9 @@
 ---
-title: ASA Short Course <br> Second-generation p-values (half-day)
+title: ASA Short Course <br> Second-generation p-values (Half-Day)
 output: 
   html_document:
     code_folding: hide
-    number_sections: yes
+    number_sections: no
     toc: yes
     toc_depth: 2
     toc_float: yes
@@ -16,7 +16,13 @@ output:
     + School of Data Science, University of Virginia
 + Megan H. Murray, almost PhD (July 6th defense)
     + Department of Biostatistics, Vanderbilt University
+    
+Resources:
 
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
++ Interrupt or use Zoom chat for questions! 
++ For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE)
@@ -27,67 +33,239 @@ library(ggplot2)
 library(dplyr)
 library(kableExtra)
 library(FDRestimation)
+library(survival)
 
+## load data
 data(leukstats)
+data(lung)
 ```
 
-# Part I
+# Part 1
 
-## SGPV R Package
+## Part 1a
 
-<!-- install.packages("devtools") -->
-<!-- devtools::install_github("weltybiostat/sgpv") -->
+### SGPV R Package
+
+Install `sgpv` package. 
+
+```{r eval=FALSE}
+#GitHub
+install.packages("devtools")
+devtools::install_github("weltybiostat/sgpv")
+
+#CRAN
+install.packages("sgpv")
+```
+
+### Systolic Blood Pressure
 
 
 ```{r}
+options(digits=5)
+#function
+xbar<-c(.5,1,1.1,1.1,1.1)
+se<-c(.2,.2,.2,.1,.05)
 
+p.plot<-function(xbar,se,delta.a,delta.b,h0,side='right'){
+  lb<-xbar-1.96*se
+  ub<-xbar+1.96*se
+  z1<-(xbar-h0)/se
+  p1<-round(2*pnorm(-abs(z1)),5)
+  z2<-ifelse(abs(xbar-delta.b)< abs(xbar-delta.a),(xbar-delta.b)/se,(xbar-delta.a)/se)
+  z2<-ifelse(xbar>delta.b | delta.a > xbar,z2,0)
+  p2<-round(2*pnorm(-abs(z2)),5)
+  p3<-correction<-NULL
+  
+  for (i in 1:length(xbar)){
+    p3[i]<-ifelse((lb[i] <delta.b & ub[i]>delta.b )|(lb[i] < delta.a & ub[i] > delta.a),min((delta.b-lb[i])/(ub[i]-lb[i]),(delta.b-delta.a)/(ub[i]-lb[i]),(ub[i]-delta.a)/(ub[i]-lb[i])),1)
+    #emphasis on null hypothesis adjustment
+    correction[i]<-max((ub[i]-lb[i])/(2*(delta.b-delta.a)),1)
+  }
+  p3<-ifelse(lb>delta.b,0,p3)
+  p3<-ifelse(ub< delta.a,0,p3)
+  p4<-ifelse(p3 != 0 & p3 != 1,p3*p2,p3)
+  p5<-p3*correction
+  
+  if(side=='right'){
+    
+    plot(c(xbar,NA),1:(length(xbar)+1),xlim=c(min(lb,delta.a),max(ub)+5),xaxt='n',yaxt='n',ylab="",xlab="")
+    abline(v=h0,lty=2,lwd=2,col='red')
+    points(c(xbar,NA),1:(length(xbar)+1))
+    for  (i in 1:length(xbar)){
+      lines(c(lb[i],ub[i]),c(i,i))
+    }
+    rect(delta.a,length(xbar)+1,delta.b,0,col=rgb(1,0,0,.5))
+    text(max(ub)+.5,1:(length(xbar)+1),c(round(p5,4),"A better P-value"))
+    #text(max(ub)+.5,1:(length(xbar)+1),c(round(p4,4),"Proportion*Max P-value"))
+    #text(max(ub)+2,1:(length(xbar)+1),c(round(p3,4),"Proportion in Null"))
+    text(max(ub)+2.5,1:(length(xbar)+1),c(round(p2,4),"Max P-value"))
+    text(max(ub)+4.5,1:(length(xbar)+1),c(round(p1,4),"Traditional P-value"))
+    axis(side = 1,at=seq(round(min(lb)),round(max(ub)),delta.b-h0))
+  }else if (side=='left'){
+    
+    plot(c(xbar,NA),1:(length(xbar)+1),xlim=c(min(lb)-7,max(ub,delta.b)),xaxt='n',yaxt='n',ylab="",xlab="")
+    abline(v=h0,lty=2,lwd=2,col='red')
+    points(c(xbar,NA),1:(length(xbar)+1))
+    for  (i in 1:length(xbar)){
+      lines(c(lb[i],ub[i]),c(i,i))
+    }
+    rect(delta.a,length(xbar)+1,delta.b,0,col=rgb(1,0,0,.5))
+    text(min(lb)-6.5,1:(length(xbar)+1),c(c("Study 8","Study 7","Study 6","Study 5","Study 4","Study 3","Study 2","Study 1")," "),font=2)
+    text(min(lb)-4.5,1:(length(xbar)+1),c(round(p5,4),expression(P[delta]-value)))
+    text(min(lb)-2.5,1:(length(xbar)+1),c(round(p2,4),"Max P-value"))
+    text(min(lb)-.5,1:(length(xbar)+1),c(ifelse(round(p1,4)>0.0001 |round(p1,4)==0,round(p1,4),"<0.0001"),"Traditional P-value"))
+    axis(side = 1,at=seq(round(min(lb,delta.a)),round(max(ub,delta.b)),delta.b-h0))
+  }
+  return(cbind(lb,ub))
+}
+```
+
+```{r}
+#plot for paper
+ p.plot(xbar=c(120,120,120.5,121,122,122),se=c(.4,1,.4,.4,1,.4),delta.a=119,delta.b=121,h0=120)
+ 
+p.plot(xbar=c(140,141,142.5,143,145,144,144.5,145),se=c(.5,1,.5,1,2.25,1.25,.25,.5),delta.a=143,delta.b=147,h0=145,'left')
+
+```
+
+### BOMAMI
+
++ European Heart Journal: [https://academic.oup.com/eurheartj/article/32/14/1748/527618](https://academic.oup.com/eurheartj/article/32/14/1748/527618)
+
+```{r}
 ##########################
-###### BOMAMI Trial
+###### BOMAMI Trial Slide 28 and 29
 
-# link??
-
-## OR
-sgpvalue(est.lo=0.967, est.hi=7.286, null.lo=0.9, null.hi=1.11)
+## OR 
+sgpvalue(est.lo=0.967, est.hi=7.286, null.lo=0.9, null.hi=1.11)$p.delta
 
 ## RR
-sgpvalue(est.lo=0.953, est.hi=4.589, null.lo=0.9, null.hi=1.11)
+sgpvalue(est.lo=0.953, est.hi=4.589, null.lo=0.9, null.hi=1.11)$p.delta
 
 ## RD
-sgpvalue(est.lo=0.003, est.hi=0.352, null.lo=-0.1, null.hi=0.1)
-sgpvalue(est.lo=0.003, est.hi=0.352, null.lo=-0.05, null.hi=0.05)
+sgpvalue(est.lo=0.003, est.hi=0.352, null.lo=-0.1, null.hi=0.1)$p.delta
+sgpvalue(est.lo=0.003, est.hi=0.352, null.lo=-0.05, null.hi=0.05)$p.delta
+```
 
-## Logistic REgression
+```{r}
+## Logistic Regression Slide 30
 
 ##########################
 ###### BOMAMI Trial
 
 ## Primary OR
-sgpvalue(est.lo=1.18, est.hi=20.19, null.lo=0.9, null.hi=1.11)
+p1 = sgpvalue(est.lo=1.18, est.hi=20.19, null.lo=0.9, null.hi=1.11)$p.delta
 # sgpvalue(est.lo=1.18, est.hi=20.19, null.lo=0.8, null.hi=1.2)
 
 ## Covariates
-sgpvalue(est.lo=1.09, est.hi=19.28, null.lo=0.9, null.hi=1.11)
-sgpvalue(est.lo=0.86, est.hi=38.29, null.lo=0.9, null.hi=1.11)
+p2 = sgpvalue(est.lo=1.09, est.hi=19.28, null.lo=0.9, null.hi=1.11)$p.delta
+p3 = sgpvalue(est.lo=0.86, est.hi=38.29, null.lo=0.9, null.hi=1.11)$p.delta
 
-sgpvalue(est.lo=0.66, est.hi=8.98, null.lo=0.9, null.hi=1.11)
-sgpvalue(est.lo=0.36, est.hi=26.92, null.lo=0.9, null.hi=1.11)
+p4 = sgpvalue(est.lo=0.66, est.hi=8.98, null.lo=0.9, null.hi=1.11)$p.delta
+p5 = sgpvalue(est.lo=0.36, est.hi=26.92, null.lo=0.9, null.hi=1.11)$p.delta
 
-sgpvalue(est.lo=0.95, est.hi=1.11, null.lo=0.9, null.hi=1.11)
-sgpvalue(est.lo=0.09, est.hi=1.59, null.lo=0.9, null.hi=1.11)
+p6 = sgpvalue(est.lo=0.95, est.hi=1.11, null.lo=0.9, null.hi=1.11)$p.delta
+p7 = sgpvalue(est.lo=0.09, est.hi=1.59, null.lo=0.9, null.hi=1.11)$p.delta
 
+
+kable(cbind(c("Variable",
+              "group", 
+              "tobacco",
+              "microvascular obstroction",
+              "dyslipidemia",
+              "gender",
+              "age",
+              "hypertension"), c("SGPV",p1,round(p2,3),p3,p4,p5,p6,p7)), format = "html", table.attr = "style='width:50%;'") %>%
+  kable_styling(c("striped", "bordered"))
 ```
 
- ?tsum.test in the BSDA package. For 
- 
- https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd 
- 
- https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd
- 
- https://stackoverflow.com/questions/5526922/r-t-test-from-n-mean-sd
- 
- 50 observations a piece
+### Lung Cancer Survival
 
-## Plots
+```{r}
+fit<- survfit(Surv(time, status) ~ sex, data = lung)
+plot(fit,col=c("red","blue"))
+# summary(fit)
+# objects(fit)
+# summary(fit)$surv
+
+newdata=lung$sex
+
+lung.Surv <- with(lung, Surv(time=time, event=status))
+lung.survfit <- survfit(lung.Surv ~ lung$sex)
+
+sCox <- coxph(lung.Surv ~ as.factor(sex),data=lung)
+```
+
+```{r}
+pred.1=summary(survfit(sCox,newdata=data.frame(sex=1)))$surv
+pred.2=summary(survfit(sCox,newdata=data.frame(sex=2)))$surv
+pred.diff=pred.2-pred.1
+time.diff=summary(survfit(sCox,newdata=data.frame(sex=1)))$time
+v.1=summary(survfit(sCox,newdata=data.frame(sex=1)))$std.err^2
+v.2=summary(survfit(sCox,newdata=data.frame(sex=2)))$std.err^2
+se.diff=sqrt(v.1+v.2)
+
+lb=pred.diff-1.96*se.diff
+ub=pred.diff+1.96*se.diff
+
+pdelt <- sgpvalue(lb,ub,-0.05,0.05)$p.delta
+```
+
+```{r}
+#colors
+colfunc <- colorRampPalette(c("grey90", "gray44"))
+COL <- ifelse(pdelt == 0,"#00ea6e",
+              ifelse(pdelt == 1, "#ff0000",
+                     colfunc(length(unique(pdelt[!(pdelt %in% c(0,1))])))[as.numeric(cut(pdelt[!(pdelt %in% c(0,1))],breaks = length(unique(pdelt[!(pdelt %in% c(0,1))]))))]))
+
+
+plot(lung.survfit,col=c("dodgerblue1","hotpink"),mark.time=F,lwd=c(2,2),
+	ylab="Survival",xlab="") ## sex=1 is hotpink
+for (i in 1:length(time.diff)){rug(time.diff[i],col=COL[i],lwd=1.2,ticksize=0.04)}
+axis(side=1)
+mtext("Days",side=1,line=2.25)
+
+legend(750,1,c("Females","Males"),col=c("hotpink","dodgerblue1"),lty=1,lwd=2,bty="n")
+text(900,0.82,"ID zone is +/- 5%")
+
+par(xpd=TRUE)
+legend(125,-0.175,c("pdelta=0","0 < pdelta < 1","pdelta=1"),text.width=c(60,120,150),
+		col=c("#00ea6e","#D8D8D8","#ff0000"),lwd=2,lty=1,horiz=TRUE,bty="n")
+par(xpd=FALSE)
+```
+
+```{r}
+## CI plot to illustrate...
+
+par(xpd=FALSE)
+plot(time.diff,pred.diff,ylim=c(-0.1,0.35),xlab="",ylab="Difference",type="n")
+axis(side=1)
+mtext("Days",side=1,line=2.25)
+rect(0,-0.05,max(time.diff),0.05,col=rgb(208,216,232,max=255),border=NA)
+lines(time.diff,pred.2-pred.1,lwd=2,col="black")
+abline(h=0,lty=2,lwd=0.5)
+
+lines(time.diff,ub,lty=2,col="red")
+lines(time.diff,lb,lty=2,col="red")
+
+for (i in 1:length(time.diff)){rug(time.diff[i],col=COL[i],lwd=1.2,ticksize=0.04)}
+axis(side=1)
+par(xpd=TRUE)
+legend(125,-0.175,c("pdelta=0","0 < pdelta < 1","pdelta=1"),text.width=c(60,120,150),
+		col=c("#00ea6e","#D8D8D8","#ff0000"),lwd=2,lty=1,horiz=TRUE,bty="n")
+par(xpd=FALSE)
+
+legend(675,0.37,c("Difference","95% CI"),col=c("black","red"),lty=c(1,2),lwd=2,bty="n")
+
+text(800,0.31,"ID zone is +/- 5%")
+```
+
+
+
+
+## Part 1b
+
+### Plots
 
 ```{r}
 
@@ -109,7 +287,7 @@ axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
 	las=2)
 ```
 
-# Part II
+# Part 2
 
 6 properties- load functions
 study planning
@@ -125,8 +303,6 @@ alpha-0.05
 ## SGPV False Discovery Risk
 
 ```{r}
-
-
 ##########################
 ###### FDR rates
 
@@ -303,3 +479,14 @@ if(tail(try.mids,1)<0.5){
 
 pi0.hat
 ```
+
+
+ ?tsum.test in the BSDA package. For 
+ 
+ https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd 
+ 
+ https://stackoverflow.com/questions/18919091/generate-random-numbers-with-fixed-mean-and-sd
+ 
+ https://stackoverflow.com/questions/5526922/r-t-test-from-n-mean-sd
+ 
+ 50 observations a piece
