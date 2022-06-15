@@ -1,4 +1,6 @@
-# An Introduction to Second-generation p-values and their Use in Statistical Practice
+# ASA Traveling Short Course 2022
+
+## An Introduction to Second-generation p-values and their Use in Statistical Practice
 
 Instructors: Jeffrey D. Blume, School of Data Science, University of Virginia, and Megan H. Murray, Biostatistics, Vanderbilt University
 
