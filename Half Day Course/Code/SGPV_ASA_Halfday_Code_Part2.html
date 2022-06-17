@@ -1936,10 +1936,12 @@ out_TOST = tsum_TOST(m1=x_bar,
             eqbound_type = &quot;raw&quot;)
 
 out_TOST$TOST</code></pre>
-<pre><code>##                     t        SE df   p.value
-## t-test     -1.6160427 0.3123108  5 0.1670073
-## TOST Lower -0.4153158 0.3123108  5 0.6524342
-## TOST Upper -2.8167696 0.3123108  5 0.0186250</code></pre>
+<pre><code>##                    t        SE df    p.value
+## t-test     0.8056973 0.5427587  5 0.45700761
+## TOST Lower 1.4966121 0.5427587  5 0.09737458
+## TOST Upper 0.1147826 0.5427587  5 0.54345780</code></pre>
+<pre class="r"><code>max(out_TOST$TOST$p.value[2], out_TOST$TOST$p.value[3])</code></pre>
+<pre><code>## [1] 0.5434578</code></pre>
 <pre class="r"><code>out_sgpv = sgpvalue(est.lo=a, 
                        est.hi=b, 
                        null.lo=theta_m, 
@@ -1947,7 +1949,7 @@ out_TOST$TOST</code></pre>
 
 out_sgpv </code></pre>
 <pre><code>## $p.delta
-## [1] 0.4487419
+## [1] 0.5
 ## 
 ## $delta.gap
 ## [1] NA</code></pre>
@@ -2034,6 +2036,17 @@ g</code></pre>
 <div id="statistical-properties" class="section level2" number="2.2">
 <h2><span class="header-section-number">2.2</span> Statistical
 Properties</h2>
+<p>3 inference outcomes:</p>
+<ul>
+<li>Data are consistent with null <span class="math inline">\(p_\delta=1\)</span></li>
+<li>Data are consistent with alternative <span class="math inline">\(p_\delta=0\)</span></li>
+<li>Data are inconclusive <span class="math inline">\(0&lt;p_\delta&lt;1\)</span></li>
+</ul>
+<p>2 underlying truths:</p>
+<ul>
+<li>Null is true</li>
+<li>Alternative is true</li>
+</ul>
 <pre class="r"><code>prob.alt.sg = function(n, null.delta, 
                     theta0=0, 
                     theta=0,  
