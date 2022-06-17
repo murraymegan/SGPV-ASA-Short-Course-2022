@@ -1,0 +1,584 @@
+---
+title: Part 2 - ASA Short Course <br> Second-generation p-values (Half-Day) 
+output: 
+  html_document:
+    code_folding: hide
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: sandstone
+---
+
+# Introduction {-}
+
++ Jeffrey D. Blume, PhD
+    + School of Data Science, University of Virginia
++ Megan H. Murray, almost PhD (July 6th defense)
+    + Department of Biostatistics, Vanderbilt University
+    
+Resources:
+
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
++ Interrupt or use Zoom chat for questions! 
++ For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE)
+
+## load all needed packages
+library(sgpv)
+library(ggplot2)
+library(dplyr)
+library(kableExtra)
+library(FDRestimation)
+library(survival)
+library(TOSTER)
+library(latex2exp)
+
+## load data
+data(leukstats)
+data(lung)
+```
+
+# SGPV R Package
+
+There are 2 ways to install `sgpv` package. 
+
++ CRAN: `install.packages("sgpv")`
++ GitHub: `devtools::install_github("weltybiostat/sgpv")`
+
+```{r eval=FALSE}
+#GitHub
+install.packages("devtools")
+devtools::install_github("weltybiostat/sgpv")
+
+#CRAN
+install.packages("sgpv")
+```
+
+Functions Included:
+
++ `sgpvalue()`
+    + This function computes the second-generation p-value (SGPV) and its associated delta gaps, as introduced in Blume et al. (2018).
++ `sgpower()`
+    + Calculate power and type I error values from significance testing based on second-generation p-values as the inferential metric.
++ `plotsgpv()`
+    + This function displays user supplied interval estimates (support intervals, confidence intervals, credible intervals, etc.) according to its associated second-generation p-value ranking.
++ `plotman()`
+    + This function displays a modified Manhattan-style plot colored according to second-generation p-value status.
++ `fdrisk()`
+    + This function computes the false discovery risk (sometimes called the "empirical bayes FDR") for a second-generation p-value of 0, or the false confirmation risk for a second-generation p-value of 1.
+
+# Part 2
+
+## Equivalence tests: TOST
+
++ Establish bioequivalence between data and an established range
++ Example: A pharmaceutical company tests for drug approval by comparing new drug’s performance to an approved drug’s performance
++ Tests are ordinary, one-sided, α-level t-tests
++ Flips the null and alternative hypotheses
+
+```{r}
+n=6
+dat = rnorm(n, 0, 1)
+a = t.test(dat)$conf.int[1]
+b =  t.test(dat)$conf.int[2]
+  
+x_bar = mean(dat)
+S = sd(dat)
+Z = (b-x_bar)/(S/sqrt(n))
+  
+theta_p = 0.5*0.75
+theta_m = -0.5*0.75
+  
+out_TOST = tsum_TOST(m1=x_bar, 
+            mu=0,       
+            sd1=S, 
+            n1=n, 
+            low_eqbound=theta_m, 
+            high_eqbound=theta_p, 
+            alpha=0.05,
+            eqbound_type = "raw")
+
+out_TOST$TOST
+
+max(out_TOST$TOST$p.value[2], out_TOST$TOST$p.value[3])
+  
+out_sgpv = sgpvalue(est.lo=a, 
+                       est.hi=b, 
+                       null.lo=theta_m, 
+                       null.hi=theta_p)
+
+out_sgpv 
+```
+
+```{r message=FALSE, warning=FALSE}
+set.seed(999)
+iter=500
+n=6
+results = as.data.frame(matrix(ncol=2, nrow=iter))
+colnames(results) = c("sgpv", "tost")
+half.case = NULL
+half.case2 = NULL
+
+for(i in 1:iter){
+  dat = rnorm(n, 0, 1)
+  a = t.test(dat)$conf.int[1]
+  b =  t.test(dat)$conf.int[2]
+  x_bar = mean(dat)
+  S = sd(dat)
+  Z = (b-x_bar)/(S/sqrt(n))
+  
+  theta_p = 0.5*0.75
+  theta_m = -0.5*0.75
+  
+  out_TOST = tsum_TOST(m1=x_bar, 
+            mu=0,       
+            sd1=S, 
+            n1=n, 
+            low_eqbound=theta_m, 
+            high_eqbound=theta_p, 
+            alpha=0.05,
+            eqbound_type = "raw")
+  
+  out_sgpv = sgpvalue(est.lo=a, 
+                       est.hi=b, 
+                       null.lo=theta_m, 
+                       null.hi=theta_p)$p.delta
+  
+  results[i,1] = out_sgpv 
+  results[i,2] = pmax(out_TOST$TOST$p.value[2],out_TOST$TOST$p.value[3]) 
+}
+
+
+library(ggplot2)
+scaleFUN <- function(x) sprintf("%.1f", x)
+
+g = ggplot(results, aes(sgpv, tost))+
+  xlab("SGPVs") +
+  ylab("Equivalence p-values") +
+  geom_point(aes(alpha=0.2)) +
+  geom_abline(intercept = 1, slope = -1,linetype='dashed', alpha=0.6)+
+  xlim(c(0,1))+
+  scale_x_continuous(breaks= c( 0,0.120001,0.880001,1),labels=c("0", "~0.1", "~0.9", "1"), minor_breaks = c(0.12,0.88),
+                      sec.axis=sec_axis(~./1, name="",breaks= c( 0.04,0.51,0.98), labels=c("Consistent \n with Alternative", "\n Inconclusive", "Consistent \n with Null")))+ 
+  scale_y_continuous(breaks= c(0,0.07,1),  labels=c("0", expression(alpha), "1"),minor_breaks = c(0.070001),
+                     sec.axis=sec_axis(~./1, name="", breaks= c(0.005,0.61), labels=c("Consistent \n with Null","Inconclusive")))+
+  annotate(geom="text", x=0, y=0.9, label="D",
+              size=5,
+           family = "Courier-Bold")+
+  annotate(geom="text", x=0.85, y=0.98, label="E",
+              size=5,
+           family = "Courier-Bold")+
+  annotate(geom="text", x=0.91, y=0.98, label="F",
+              size=5,
+           family = "Courier-Bold")+
+  annotate(geom="text", x=0, y=0, label="H",
+              size=5,
+           family = "Courier-Bold")+
+  annotate(geom="text", x=0.15, y=0, label="I",
+              size=5,
+           family = "Courier-Bold")+
+  annotate(geom="text", x=0.91, y=0, label="J",
+              size=5,
+           family = "Courier-Bold")+
+  theme_bw()+
+  theme(axis.text.y =  element_text(size=10, hjust=-0.5),
+        axis.text.y.right =  element_text(size=10, hjust=0.7),
+         axis.text.x.top =  element_text(size=10, vjust=2),
+        axis.text.x =  element_text(size=10, vjust=-0.5),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_line(size = 0.8,colour="darkgrey"))+ 
+    guides(alpha=FALSE)
+g
+```
+
+## Statistical Properties
+
+3 inference outcomes:
+
++ Data are consistent with null $p_\delta=1$
++ Data are consistent with alternative $p_\delta=0$
++ Data are inconclusive $0<p_\delta<1$
+
+2 underlying truths:
+
++ Null is true
++ Alternative is true
+
+```{r alt}
+prob.alt.sg = function(n, null.delta, 
+                    theta0=0, 
+                    theta=0,  
+                    V=1, 
+                    alpha=0.05){
+  results = rep(NA, length(n))
+  
+  results = pnorm(sqrt(n)*(theta0-null.delta)/sqrt(V)-sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))+
+    pnorm(-1*sqrt(n)*(theta0+null.delta)/sqrt(V)+sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))
+  
+  results
+}
+```
+
+
+```{r null}
+prob.null.sg = function(n, 
+                        null.delta, 
+                     theta0=0, 
+                     theta=0,
+                     V=1, 
+                     alpha=0.05){
+  results = rep(NA, length(n))
+  
+  if(length(null.delta)>1){
+    con.large = which(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+    con.small = which(null.delta<=(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+    
+    results[con.small] = rep(0, length(con.small))
+    results[con.large] =
+      pnorm(sqrt(n[con.large])*theta0+sqrt(n[con.large])*null.delta[con.large]/sqrt(V)-sqrt(n[con.large])*theta/sqrt(V)-qnorm(1-alpha/2))-
+      pnorm(sqrt(n[con.large])*theta0-sqrt(n[con.large])*null.delta[con.large]/sqrt(V)-sqrt(n[con.large])*theta/sqrt(V)+qnorm(1-alpha/2))
+  }else if(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n))){ 
+    results =
+      pnorm(sqrt(n)*theta0+sqrt(n)*null.delta/sqrt(V)-sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))-
+      pnorm(sqrt(n)*theta0-sqrt(n)*null.delta/sqrt(V)-sqrt(n)*theta/sqrt(V)+qnorm(1-alpha/2))
+  }else{
+    results = rep(0, length(theta))
+  }
+  results
+}
+```
+
+```{r incon}
+prob.incon.sg = function(n, null.delta, 
+                    theta0=0, 
+                    theta=0,  
+                    V=1,
+                    alpha=0.05){
+  results = rep(NA, length(n))
+  
+  con.large = which(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+  con.small = which(null.delta<=(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+  
+  results = 1-(prob.alt.sg(n, null.delta,
+                        theta0, 
+                        theta, 
+                        V,
+                        alpha)+
+                 prob.null.sg(n, null.delta,
+                           theta0, 
+                           theta,
+                           V, 
+                           alpha))
+  
+  results
+}
+```
+
+```{r}
+theta.1 = seq(-3,3,by=0.01)
+
+plot(theta.1, prob.alt.sg(n=50,
+            null.delta = 0,
+            theta=theta.1), type="l",
+     ylim=c(0,1),
+     xlab="Alternative",
+     ylab="Probability",
+     main="Prob of being consistent with alternative")
+lines(theta.1, prob.alt.sg(n=50,
+            null.delta = 0.5,
+            theta=theta.1),
+      col="green")
+lines(theta.1, prob.alt.sg(n=50,
+            null.delta = 1,
+            theta=theta.1),
+      col="blue")
+abline(h=0.05, lty=2)
+legend("bottomright",
+       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
+       col=c("black", "green","blue"), lty=1)
+
+```
+```{r}
+theta.1 = seq(-3,3,by=0.01)
+
+plot(theta.1, prob.null.sg(n=50,
+            null.delta = 0,
+            theta=theta.1), type="l",
+     ylim=c(0,1),
+     xlab="Alternative",
+     ylab="Probability",
+     main="Prob of being consistent with null")
+lines(theta.1, prob.null.sg(n=50,
+            null.delta = 0.5,
+            theta=theta.1),
+      col="green")
+lines(theta.1, prob.null.sg(n=50,
+            null.delta = 1,
+            theta=theta.1),
+      col="blue")
+abline(h=0.05, lty=2)
+legend("bottomright",
+       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
+       col=c("black", "green","blue"), lty=1)
+```
+
+```{r}
+theta.1 = seq(-3,3,by=0.01)
+
+plot(theta.1, prob.incon.sg(n=50,
+            null.delta = 0,
+            theta=theta.1), type="l",
+     ylim=c(0,1),
+     xlab="Alternative",
+     ylab="Probability",
+     main="Prob of being inconclusive")
+lines(theta.1, prob.incon.sg(n=50,
+            null.delta = 0.5,
+            theta=theta.1),
+      col="green")
+lines(theta.1, prob.incon.sg(n=50,
+            null.delta = 1,
+            theta=theta.1),
+      col="blue")
+abline(h=0.05, lty=2)
+legend("bottomright",
+       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
+       col=c("black", "green","blue"), lty=1)
+```
+
+## SGPV False Discovery Risk
+
++ False Discovery Rate (FDR)
+    + SGPV = 0
++ False Confirmation Rate (FCR)
+    + SGPV = 1
+
++ `sgpv::fdrisk()` 
+    + This function computes the false discovery risk (sometimes called the "empirical bayes FDR") for a second-generation p-value of 0, or the false confirmation risk for a second-generation p-value of 1.
+
+```{r}
+###### FDR rates
+# false discovery risk with 95% confidence level
+fdrisk(sgpval = 0,  
+       null.lo = log(1/1.1), 
+       null.hi = log(1.1),  
+       std.err = 0.8,  
+       null.weights = 'Uniform',  
+       null.space = c(log(1/1.1), log(1.1)),  
+       alt.weights = 'Uniform',  
+       alt.space = 2 + c(-1,1)*qnorm(1-0.05/2)*0.8,  
+       interval.type = 'confidence',  
+       interval.level = 0.05)
+
+## with truncated normal weighting distribution
+fdrisk(sgpval = 0,  
+       null.lo = log(1/1.1), 
+       null.hi = log(1.1),  
+       std.err = 0.8,  
+       null.weights = 'Point', 
+       null.space = 0,  
+       alt.weights = 'TruncNormal',  
+       alt.space = 2 + c(-1,1)*qnorm(1-0.041/2)*0.8,  
+       interval.type = 'likelihood',  interval.level = 1/8)
+
+# false discovery risk with LSI and wider null hypothesis
+fdrisk(sgpval = 0,  
+       null.lo = log(1/1.5), 
+       null.hi = log(1.5), 
+       std.err = 0.8,  
+       null.weights = 'Point', 
+       null.space = 0,  
+       alt.weights = 'Uniform', 
+       alt.space = 2.5 + c(-1,1)*qnorm(1-0.041/2)*0.8,  
+       interval.type = 'likelihood',  interval.level = 1/8)
+
+# false confirmation risk example
+fdrisk(sgpval = 1,  
+       null.lo = log(1/1.5), 
+       null.hi = log(1.5), 
+       std.err = 0.15,  
+       null.weights = 'Uniform',  
+       null.space = 0.01 + c(-1,1)*qnorm(1-0.041/2)*0.15, 
+       alt.weights = 'Uniform', 
+       alt.space = c(log(1.5), 1.25*log(1.5)), 
+       interval.type = 'likelihood',  interval.level = 1/8)
+
+###
+##
+#
+```
+
+## FDRestimation
+
+Download the package from:
+
++ https://cran.r-project.org/package=FDRestimation
++ OR https://github.com/murraymegan/FDRestimation 
+
++ Our corresponding paper: [https://f1000research.com/articles/10-441](https://f1000research.com/articles/10-441) 
+
+```{r}
+p.fdr.output = p.fdr(leukstats$p.value)
+
+head(p.fdr.output$`Results Matrix`)
+
+summary(p.fdr.output)
+```
+
+### Plots {-}
+
+```{r}
+plot(p.fdr.output)
+```
+
+```{r}
+plot(p.fdr.output, xlim=c(1100,1600), ylim=c(0, 0.2))
+
+which(-1*(p.fdr.output$`Results Matrix`$`Adjusted p-values`)+p.fdr.output$fdrs>0.001)
+
+#Benjamini-Yeukatelli
+p.fdr.output = p.fdr(leukstats$p.value, adjust.method = "BY")
+
+head(p.fdr.output$`Results Matrix`)
+```
+
+```{r}
+plot(p.fdr.output)
+
+plot(p.fdr.output, xlim=c(2000,2400), legend.on = FALSE)
+```
+
+### Simple Example {-}
+
+```{r}
+pvalues=c(0.005,0.049,0.05,0.051,0.7)
+zvalues=qnorm(pvalues/2, lower.tail = FALSE)
+
+p.fdr.output = p.fdr(pvalues)
+
+adj.pvalues= p.fdr.output$`Results Matrix`$`Adjusted p-values`
+adj.fdrs= p.fdr.output$fdrs
+
+single.fdr = c(p.fdr(pvalues=pvalues[1],zvalue=zvalues[1]),
+               p.fdr(pvalues=pvalues[2],zvalue=zvalues[2]),
+               p.fdr(pvalues=pvalues[3],zvalue=zvalues[3]),
+               p.fdr(pvalues=pvalues[4],zvalue=zvalues[4]),
+               p.fdr(pvalues=pvalues[5],zvalue=zvalues[5]))
+```
+
+```{r}
+df = data.frame("Raw p-values"= pvalues, 
+                "Z-values" = zvalues,
+                "BH Adj p-values" = adj.pvalues,
+                "BH FDRs" = adj.fdrs,
+                "Single lower bound FDRs" = single.fdr)
+
+colnames(df) = c("Raw p-values", 
+                "Z-values",
+                "BH Adj p-values"  ,
+                "BH FDRs" ,
+                "Single lower bound FDRs" )
+                
+kable(round(df,3))%>%
+  kable_styling(c("striped", "bordered"))
+```
+
+### Compare to p.adjust {-}
+
+```{r}
+set.seed(999)
+pi0 <- 0.8
+pi1 <- 1-pi0
+n <- 10
+n.0 <- ceiling(n*pi0)
+n.1 <- n-n.0
+
+sim.data <- c(rnorm(n.1,2,1),rnorm(n.0,0,1))
+sim.data.p <- 2*pnorm(-abs(sim.data))
+
+p.adjust.output = p.adjust(sim.data.p, method="fdr")
+
+fdr.output = p.fdr(pvalues=sim.data.p, adjust.method="BH")
+
+head(data.frame("Raw p-values"= sim.data.p,"p.adjust FDRs"=p.adjust.output,"p.fdr adj p-values"=fdr.output$`Results Matrix`$`Adjusted p-values`,"p.fdr FDRs"=fdr.output$fdrs))
+
+plot(rank(sim.data.p, ties="random"), 
+     fdr.output$`Results Matrix`$`Adjusted p-values`, 
+     pch=17, 
+     col="dodgerblue", 
+     cex=2, 
+     ylim=c(0,1),
+     main="Comparison Plot", 
+     xlab="Rank of p-values",
+     ylab="")
+points(rank(sim.data.p, ties="random"),p.adjust.output, pch=20, col="pink")
+points(rank(sim.data.p, ties="random"),fdr.output$fdrs, pch=20, col="firebrick")
+legend("bottomright", c("p.adjust FDRs", "p.fdr FDRs","p.fdr Adjusted p-values"), col=c("pink", "firebrick","dodgerblue"), pch=c(20,20,17))
+```
+
+### Different Null proportions {-}
+
+```{r}
+get.pi0(leukstats$p.value, estim.method = "last.hist")
+get.pi0(leukstats$p.value, estim.method = "storey")
+get.pi0(leukstats$p.value, estim.method = "set.pi0", set.pi0=0.8)
+```
+
+```{r}
+set.seed(999)
+pi0 <- 0.8
+pi1 <- 1-pi0
+n <- 100
+n.0 <- ceiling(n*pi0)
+n.1 <- n-n.0
+
+sim.data <- c(rnorm(n.1,2,1),rnorm(n.0,0,1))
+sim.data.p <- 2*pnorm(-abs(sim.data))
+
+fdr.output = p.fdr(pvalues=sim.data.p, adjust.method="BH")
+
+plot(fdr.output)
+
+fdr.output = p.fdr(pvalues=sim.data.p, adjust.method="BH", set.pi0=0.8)
+
+plot(fdr.output)
+```
+
+```{r}
+get.pi0(sim.data.p, estim.method = "set.pi0", set.pi0=0.7)
+get.pi0(sim.data.p, estim.method = "last.hist")
+get.pi0(sim.data.p, estim.method = "storey")
+
+pi0 <- 0.8
+pi1 <- 1-pi0
+n <- 10000
+n.0 <- ceiling(n*pi0)
+n.1 <- n-n.0
+
+sim.data <- c(rnorm(n.1,2,1),rnorm(n.0,0,1))
+sim.data.p <- 2*pnorm(-abs(sim.data))
+
+get.pi0(sim.data.p, estim.method = "set.pi0", set.pi0=0.7)
+get.pi0(sim.data.p, estim.method = "last.hist")
+get.pi0(sim.data.p, estim.method = "storey")
+```
+
+#### Internal Code: Last Histogram Height Method {-}
+
+```{r}
+try.hist = hist(sim.data.p, breaks="scott")
+try.mids = try.hist$mids
+try.count = try.hist$counts
+
+if(tail(try.mids,1)<0.5){
+  pi0.hat=0
+}else{
+  pi0.hat = min(tail(try.count,1)*length(try.mids)/sum(try.count),1)
+}
+
+pi0.hat
+```

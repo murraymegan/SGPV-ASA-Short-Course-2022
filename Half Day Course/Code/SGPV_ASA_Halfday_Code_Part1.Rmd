@@ -1,0 +1,658 @@
+---
+title: Part 1 - ASA Short Course <br> Second-generation p-values (Half-Day) 
+output: 
+  html_document:
+    code_folding: hide
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: sandstone
+---
+
+# Introduction {-}
+
++ Jeffrey D. Blume, PhD
+    + School of Data Science, University of Virginia
++ Megan H. Murray, almost PhD (July 6th defense)
+    + Department of Biostatistics, Vanderbilt University
+    
+Resources:
+
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
++ Interrupt or use Zoom chat for questions! 
++ For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE)
+
+## load all needed packages
+library(sgpv)
+library(ggplot2)
+library(dplyr)
+library(kableExtra)
+library(FDRestimation)
+library(survival)
+library(TOSTER)
+library(latex2exp)
+
+## load data
+data(leukstats)
+data(lung)
+```
+
+# SGPV R Package {-}
+
+There are 2 ways to install `sgpv` package. 
+
++ CRAN: `install.packages("sgpv")`
++ GitHub: `devtools::install_github("weltybiostat/sgpv")`
+
+```{r eval=FALSE}
+#GitHub
+install.packages("devtools")
+devtools::install_github("weltybiostat/sgpv")
+
+#CRAN
+install.packages("sgpv")
+```
+
+Functions Included:
+
++ `sgpvalue()`
+    + This function computes the second-generation p-value (SGPV) and its associated delta gaps, as introduced in Blume et al. (2018).
++ `sgpower()`
+    + Calculate power and type I error values from significance testing based on second-generation p-values as the inferential metric.
++ `plotsgpv()`
+    + This function displays user supplied interval estimates (support intervals, confidence intervals, credible intervals, etc.) according to its associated second-generation p-value ranking.
++ `plotman()`
+    + This function displays a modified Manhattan-style plot colored according to second-generation p-value status.
++ `fdrisk()`
+    + This function computes the false discovery risk (sometimes called the "empirical bayes FDR") for a second-generation p-value of 0, or the false confirmation risk for a second-generation p-value of 1.
+
+
+# Part 1
+
+## Part 1a
+
+### Systolic Blood Pressure
+
++ SBP is reported to the nearest 2 mmHg
++ Null Hypothesis: mean SPB is 146 mmHg
++ Interval Null hypothesis: mean is 144 to 148 mmHg
++ Results from 8 mock studies
+
+```{r}
+#SBP Example Background
+
+# Data means
+xbar=c(141,142,143.5,144,146,145,145.5,146)
+
+# Data Standard Errors
+se=c(.5,1,.5,1,2.25,1.25,.25,.5)
+
+# Indifference Zone
+delta.a=144
+delta.b=148
+
+#Point Null
+h0=146
+
+# Estimated Uncertainty Interval Bounds
+lb<-xbar-1.96*se
+ub<-xbar+1.96*se
+```
+
+```{r}
+sgpvalue(est.lo=lb, 
+               est.hi=ub, 
+               null.lo = delta.a, 
+               null.hi = delta.b)
+
+plotsgpv(est.lo = lb, 
+         est.hi = ub,
+         null.lo = delta.a,
+         null.hi = delta.b,
+		    plot.axis=c("TRUE","FALSE"),
+		    null.pt=0, outline.zone=TRUE,
+		    title.lab="SBP Example", 
+		    x.lab="Classical p-value ranking",
+		    legend.on=FALSE)
+
+# sgpower(true=xbar, 
+#         null.lo=delta.a,
+#         null.hi=delta.b,
+#         std.err=se,
+#         interval.type='confidence',
+#         'interval.level'=0.05)
+```
+
+```{r}
+# Raw p-value Z-value
+z1<-(xbar-h0)/se
+
+# Max p-value Z-value
+z2<-ifelse(abs(xbar-delta.b)< abs(xbar-delta.a),(xbar-delta.b)/se,(xbar-delta.a)/se)
+z2<-ifelse(xbar>delta.b | delta.a > xbar,z2,0)
+  
+# Raw p-value
+p1 <- round(2*pnorm(-abs(z1)),4)
+
+# Max p-value
+p2 <- round(2*pnorm(-abs(z2)),4)
+
+#SGPV
+p3 <- sgpvalue(est.lo=lb, 
+               est.hi=ub, 
+               null.lo = delta.a, 
+               null.hi = delta.b)$p.delta
+```
+
+```{r fig.width=9, fig.height=6}
+## Plot of SBP example
+id.color=rgb(208,216,232,max=255)
+
+plot(c(xbar,NA),1:(length(xbar)+1),xlim=c(min(lb,delta.a),max(ub)+5),xaxt='n',yaxt='n',ylab="",xlab="",type="n")
+    rect(delta.a,length(xbar)+1,delta.b,0,col=id.color,border=NA)
+    
+abline(v=h0,lty=2,lwd=2,col='black')
+points(c(xbar,NA),1:(length(xbar)+1))
+	
+for(i in 1:8){
+  lines(c(lb[i],ub[i]),c(i,i))
+}
+    
+text(max(ub)+4.5,1:(length(xbar)+1),c(round(p3,4),"SGPV"))
+text(max(ub)+2.5,1:(length(xbar)+1),c(round(p2,4),"Max p-value"))
+text(max(ub)+.5,1:(length(xbar)+1),c(round(p1,4),"p-value"))
+
+axis(side = 1,at=seq(round(min(lb)),round(max(ub)),delta.b-h0))
+axis(side=1,at=seq(144,148,2))	# to re-draw axis 
+mtext(side=1,"Systolic blood pressure (mmHg)",line=2.5)
+```
+
+### BOMAMI
+
++ European Heart Journal (2011): [https://academic.oup.com/eurheartj/article/32/14/1748/527618](https://academic.oup.com/eurheartj/article/32/14/1748/527618)
++ Randomized multicenter study
++ Intracoronary administration of autologous bone marrow cells (BMCs) can lead to a modest improvement in cardiac function
++ Aim: Evaluate the effect of BMC therapy on myocardial viability in patients with decreased left ventricular ejection fraction (LVEF) after acute myocardial infarction (AMI)
++ Null Interval for Odds Ratio and Risk Ratio: (0.9, 1.11)
+
+#### Odds Ratio {-}
+
+```{r}
+###### BOMAMI Trial Slide 28 and 29
+
+## OR 
+sgpvalue(est.lo=0.967, 
+         est.hi=7.286, 
+         null.lo=0.9, 
+         null.hi=1.11)$p.delta
+```
+
+#### Risk Ratio {-}
+
+```{r}
+## RR
+sgpvalue(est.lo=0.953, 
+         est.hi=4.589, 
+         null.lo=0.9, 
+         null.hi=1.11)$p.delta
+```
+
+#### Risk Ratio Difference {-}
+
+```{r}
+## RD
+sgpvalue(est.lo=0.003, 
+         est.hi=0.352, 
+         null.lo=-0.1, 
+         null.hi=0.1)$p.delta
+```
+
+#### Logistic Regression with Null Zone: (0.9, 1.11) {-}
+
+```{r}
+## Logistic Regression Slide 30
+###### BOMAMI Trial
+
+## Primary OR
+p1 = sgpvalue(est.lo=1.18, 
+              est.hi=20.19, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+
+## Covariates
+p2 = sgpvalue(est.lo=1.09, 
+              est.hi=19.28, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+p3 = sgpvalue(est.lo=0.86, 
+              est.hi=38.29, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+p4 = sgpvalue(est.lo=0.66, 
+              est.hi=8.98, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+p5 = sgpvalue(est.lo=0.36, 
+              est.hi=26.92, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+p6 = sgpvalue(est.lo=0.95, 
+              est.hi=1.11, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+p7 = sgpvalue(est.lo=0.09, 
+              est.hi=1.59, 
+              null.lo=0.9, 
+              null.hi=1.11)$p.delta
+```
+
+```{r}
+# Table with results
+kable(cbind(c("Variable",
+              "group", 
+              "tobacco",
+              "microvascular obstroction",
+              "dyslipidemia",
+              "gender",
+              "age",
+              "hypertension"),
+            c("Odds Ratio", 4.89,4.59,5.72,2.32,3.12,1.02,0.38),
+            c("Raw p-value", 0.03,0.04,0.07,0.22,0.30,0.56,0.19),
+            c("SGPV",p1,round(p2,3),p3,p4,p5,p6,p7)), format = "html", table.attr = "style='width:50%;'") %>%
+  kable_styling(c("striped", "bordered"))
+```
+
+### Lung Cancer Survival
+
++ Survival time in patients with advanced lung cancer (days)
++ Potential for gender dissimilarities
++ Trial by North Central Cancer Treatment Group (1994): [https://pubmed.ncbi.nlm.nih.gov/8120560/](https://pubmed.ncbi.nlm.nih.gov/8120560/)
+
++ Interval Null [-0.05, 0.05] % difference
+
+```{r}
+# Survival Model stratified females and Males
+fit<- survfit(Surv(time, status) ~ sex, data = lung)
+# plot(fit,col=c("red","blue"))
+# summary(fit)
+# objects(fit)
+# summary(fit)$surv
+
+newdata=lung$sex
+
+lung.Surv <- with(lung, Surv(time=time, event=status))
+lung.survfit <- survfit(lung.Surv ~ lung$sex)
+
+sCox <- coxph(lung.Surv ~ as.factor(sex),data=lung)
+```
+
+```{r}
+#Compute SGPV of difference
+pred.1=summary(survfit(sCox,newdata=data.frame(sex=1)))$surv
+pred.2=summary(survfit(sCox,newdata=data.frame(sex=2)))$surv
+
+pred.diff=pred.2-pred.1
+
+time.diff=summary(survfit(sCox,newdata=data.frame(sex=1)))$time
+
+v.1=summary(survfit(sCox,newdata=data.frame(sex=1)))$std.err^2
+v.2=summary(survfit(sCox,newdata=data.frame(sex=2)))$std.err^2
+
+se.diff=sqrt(v.1+v.2)
+
+lb=pred.diff-1.96*se.diff
+ub=pred.diff+1.96*se.diff
+
+pdelt <- sgpvalue(lb,ub,-0.05,0.05)$p.delta
+```
+
+```{r include=FALSE}
+#Colors Ignore this code
+colfunc <- colorRampPalette(c("grey90", "gray44"))
+COL <- ifelse(pdelt == 0,"#00ea6e",
+              ifelse(pdelt == 1, "#ff0000",
+                     colfunc(length(unique(pdelt[!(pdelt %in% c(0,1))])))[as.numeric(cut(pdelt[!(pdelt %in% c(0,1))],breaks = length(unique(pdelt[!(pdelt %in% c(0,1))]))))]))
+```
+
+```{r}
+#Survival Plot
+plot(lung.survfit,col=c("dodgerblue1","hotpink"),mark.time=F,lwd=c(2,2),
+	ylab="Survival",xlab="") ## sex=1 is hotpink
+for (i in 1:length(time.diff)){rug(time.diff[i],col=COL[i],lwd=1.2,ticksize=0.04)}
+axis(side=1)
+mtext("Days",side=1,line=2.25)
+
+legend(750,1,c("Females","Males"),col=c("hotpink","dodgerblue1"),lty=1,lwd=2,bty="n")
+
+par(xpd=TRUE)
+legend(125,-0.25,c("pdelta=0","0 < pdelta < 1","pdelta=1"),text.width=c(60,120,150),
+		col=c("#00ea6e","#D8D8D8","#ff0000"),lwd=2,lty=1,horiz=TRUE,bty="n")
+```
+
+```{r}
+## CI plot of difference
+par(xpd=FALSE)
+plot(time.diff,pred.diff,ylim=c(-0.1,0.35),xlab="",ylab="Difference",type="n")
+axis(side=1)
+mtext("Days",side=1,line=2.25)
+rect(0,-0.05,max(time.diff),0.05,col=rgb(208,216,232,max=255),border=NA)
+lines(time.diff,pred.2-pred.1,lwd=2,col="black")
+abline(h=0,lty=2,lwd=0.5)
+
+lines(time.diff,ub,lty=2,col="red")
+lines(time.diff,lb,lty=2,col="red")
+
+for (i in 1:length(time.diff)){rug(time.diff[i],col=COL[i],lwd=1.2,ticksize=0.04)}
+axis(side=1)
+par(xpd=TRUE)
+legend(125,-0.21,c("pdelta=0","0 < pdelta < 1","pdelta=1"),text.width=c(60,120,150),
+		col=c("#00ea6e","#D8D8D8","#ff0000"),lwd=2,lty=1,horiz=TRUE,bty="n")
+par(xpd=FALSE)
+
+legend(675,0.37,c("Difference","95% CI"),col=c("black","red"),lty=c(1,2),lwd=2,bty="n")
+```
+
+### COVID Clinical Trial
+
++ Randomized 1,591 patients to ivermectin treatment or placebo
++ Mean time spent unwell was estimated using a longitudinal ordinal regression model;   range was 0 to 14 days
++ Patients reported each day their symptoms and severity, health care visits, and medications. 
++ “The difference in the amount of time spent feeling unwell with COVID was estimated to be 0.49 days in favor of ivermectin with a 95% credible interval of (0.15, 0.82).”
+
+```{r message=FALSE, warning=FALSE}
+#Setup
+theta0 = 0
+point = 0.49 
+data.lo = 0.15
+data.hi = 0.82 
+```
+
+#### 3 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.125,
+         null.hi = 0.125)
+```
+
+#### 5 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.2083,
+         null.hi = 0.2083)
+```
+
+#### 6 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.25,
+         null.hi = 0.25)
+```
+
+#### 12 hours difference {-}
+
+```{r}
+sgpvalue(est.lo =data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.5,
+         null.hi = 0.5)
+```
+
+#### 18 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.75,
+         null.hi = 0.75)
+```
+
+#### 1 day difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -1,
+         null.hi = 1)
+```
+
+## Part 1b
+
+### High Dimensional Data: Leukemia gene expression
+
++ Classifying acute leukemia by precursors (Golub 1999, Science)
++ 7128 genes ; 72 patients (47 ALL and 25 AML)
++ Goal: Identify `interesting' genes whose expression levels differ between
++ All and AML subjects.
++ Looking for fold changes of 2 or more
+
+```{r}
+###### Leukemia Example
+data(leukstats)
+
+hist(leukstats$t.stat, breaks=100, main="", xlab="")
+```
+```{r}
+#Plot sgpv no ordering
+plotsgpv(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.3, null.hi=0.3,
+		set.order=1:nrow(leukstats),
+		x.show=7000,
+		plot.axis=c("TRUE","FALSE"),
+		int.col="cornflowerblue",
+		null.pt=0, outline.zone=TRUE,
+		title.lab="Leukemia Example", y.lab="Fold Change (base 10)",
+		legend.on=FALSE)
+axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
+	base=10),2),labels=c("1/1000","1/100","1/10","1/2",1,2,10,100,1000),
+	las=2)
+```
+
+```{r}
+#Plot sgpv with ordering
+plotsgpv(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.3, null.hi=0.3,
+		set.order=order(leukstats$p.value),
+		x.show=7000,
+		plot.axis=c("TRUE","FALSE"),
+		null.pt=0, outline.zone=TRUE,
+		title.lab="Leukemia Example", y.lab="Fold Change (base 10)",
+		x.lab="Classical p-value ranking",
+		legend.on=TRUE)
+axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
+	base=10),2),labels=c("1/1000","1/100","1/10","1/2",1,2,10,100,1000),
+	las=2)
+```
+
+```{r}
+#Plot sgpv with ordering
+plotsgpv(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.3, null.hi=0.3,
+		set.order=order(leukstats$p.value),
+		x.show=1000,
+		plot.axis=c("TRUE","FALSE"),
+		null.pt=0, outline.zone=TRUE,
+		title.lab="Leukemia Example", y.lab="Fold Change (base 10)",
+		x.lab="Classical p-value ranking",
+		legend.on=FALSE)
+axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
+	base=10),2),labels=c("1/1000","1/100","1/10","1/2",1,2,10,100,1000),
+	las=2)
+```
+
+
+```{r}
+##Bonferroni
+res = sgpvalue(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.3, null.hi=0.3)
+
+plot(c(1:nrow(leukstats)), 
+     sort(leukstats$p.value), 
+     ylim=c(0,1),
+     type="l",
+     main="Bonferroni adjusted vs. Raw p-values",
+     ylab="Probability",
+     xlab="Number of Rejected Hypotheses (index)")
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+
+```
+
++ For 1/2 < Fold Change < 2 (Delta = 0.3)
+
+```{r}
+#Table of results
+
+tab.res = table(res$p.delta>0, leukstats$p.value<(0.05/nrow(leukstats)))
+
+colnames(tab.res) = c("SGPV=0", "SGPV>0")
+rownames(tab.res) = c("p_Bon>0.05", "p_Bon<0.05")
+
+kable(tab.res)%>%
+  kable_styling(c("striped", "bordered"))
+```
+
++ Findings: Bonferroni 264, SGPV 229
+
+```{r}
+#Put SGPVs on plot
+plot(c(1:nrow(leukstats)), 
+     sort(leukstats$p.value), 
+     ylim=c(0,1),
+     type="l",
+     main=" Inference by Tail area, delta = 0.3",
+     ylab="Probability",
+     xlab="Number of Rejected Hypotheses (index)")
+points(rank(leukstats$p.value,
+            ties.method = "first"),(res$p.delta), col="green",
+       cex=0.2)
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
+
+```
+
+```{r}
+#Put SGPVs on plot
+plot(c(1:nrow(leukstats)), 
+     sort(leukstats$p.value), 
+     ylim=c(0,1),
+     type="l",
+     main=" Inference by Tail area, delta = 0.05",
+     ylab="Probability",
+     xlab="Number of Rejected Hypotheses (index)")
+points(rank(leukstats$p.value,
+            ties.method = "first"),
+       sgpvalue(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.05, null.hi=0.05)$p.delta, 
+		col="green",
+       cex=0.2)
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
+
+```
+
+### Prostate Cancer SNPs
+
++ International Consortium for Prostate Cancer Genetics (Schaid and Chang 2055; ICPCG 2018)
++ 3,894 subjects: 2,511 cases & 1,383 controls 
++ 247,000 single-nucleotide polymorphisms (SNPs) from Chromosome 6
++ Goal: Identify interesting SNPs potentially associated with prostate cancer
+
++ [https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000733.v1.p1](https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=phs000733.v1.p1)
++ Access is controlled so we will simulate data here.
+
+Here we have 10,000 genes with expression from 0 to 4. Patients 0-50 do not cancer and 51-100 do have cancer. 
+
+T-tests are conducted for each gene and p-values and CIs are taken from them.
+
+Null Interval: [0.5, 1.3]
+
+```{r}
+n=10000
+pros.sim.data = matrix(NA, nrow=100, ncol=n)
+pros.pvalue = NA
+pros.lo = NA
+pros.hi = NA
+
+for(i in 1:n){
+  pros.sim.data[c(1:50),i] = runif(50, 0, 4)
+  pros.sim.data[c(51:100),i] = runif(50, 0, 1.5)
+  t.res = t.test(pros.sim.data[1:50,i], pros.sim.data[51:100,i])
+  pros.pvalue[i] = t.res$p.value
+  pros.lo[i] = t.res$conf.int[1]
+  pros.hi[i] = t.res$conf.int[2]
+}
+
+# Gene number on the x-axis, delta-gap on the y-axis, using an interval null hypothesis of
+
+plotman(est.lo=pros.lo, 
+        est.hi=pros.hi,
+       null.lo=0.5, null.hi=1.3,
+       set.order=NA,
+       type="delta-gap",
+       ref.lines=NA,
+       int.pch=16, int.cex=0.4,
+       title.lab="Prostate Simulated Example",
+       y.lab="Delta-gap",
+       x.lab="Position",
+       legend.on=TRUE)
+
+# Gene number on the x-axis, -log10(classical p-value) on the y-axis.
+
+plotman(est.lo=pros.lo, 
+        est.hi=pros.hi,
+       null.lo=0.5, null.hi=1.3,
+       set.order=NA,
+       type="p-value",
+       p.values=-log10(pros.pvalue),
+       ref.lines=-log10(0.05),
+       int.pch=16, int.cex=0.4,
+       title.lab="Prostate Simulated Example",
+       y.lab=expression("-log"[10]*"(p-value)"),
+       x.lab="Position",
+       legend.on=TRUE)
+
+# Second-generation p-value (SGPV) on the x-axis, -log10(classical p-value) on the y-axis
+
+plotman(est.lo=pros.lo, 
+        est.hi=pros.hi,
+       null.lo=0.5, null.hi=1.3,
+       set.order="sgpv",
+       type="comparison",
+       p.values=-log10(pros.pvalue),
+       ref.lines=c(-log10(0.05)),
+       int.pch=16, int.cex=0.4,
+       title.lab="Prostate Simulated Example",
+       y.lab=expression("-log"[10]*"(p-value)"),
+       x.lab="Second-generation p-value ranking",
+       legend.on=TRUE)
+
+
+```
+
+```{r}
+plotsgpv(est.lo=pros.lo, 
+        est.hi=pros.hi,
+       null.lo=0.5, null.hi=1.3,
+		set.order=order(pros.pvalue),
+		x.show=10000,
+		plot.axis=c("TRUE","FALSE"),
+		null.pt=0, outline.zone=TRUE,
+		title.lab="Simulated Example", y.lab="Fold Change (base 10)",
+		x.lab="Classical p-value ranking",
+		legend.on=TRUE)
+axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
+	base=10),2),labels=c("1/1000","1/100","1/10","1/2",1,2,10,100,1000),
+	las=2)
+```
