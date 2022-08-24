@@ -1,0 +1,124 @@
+---
+title: Part 3 - ASA Short Course <br> Second-generation p-values (Full-Day) 
+output: 
+  html_document:
+    code_folding: hide
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: sandstone
+---
+
+# Introduction {-}
+
++ Jeffrey D. Blume, PhD
+    + School of Data Science, University of Virginia
++ Megan H. Murray, PhD
+    + Department of Biostatistics, Vanderbilt University
+    
+Resources:
+
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
++ Interrupt or use Zoom chat for questions! 
++ For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE)
+
+## load all needed packages
+library(sgpv)
+library(ggplot2)
+library(dplyr)
+library(kableExtra)
+library(latex2exp)
+library(ProSGPV)
+
+## load data
+data(leukstats)
+data(lung)
+```
+
+# Part 3
+
+## Part 3a
+
+### Implementation in R
+
++ We first present an example by applying the ProSGPV algorithm to a simulated dataset by use of gen.sim.data function.
+
++ With sample size n = 100, number of variables p = 10, number of true signals s = 4, smallest effect size $\beta_{min}$ = 1, largest effect size $\beta_{max}$ = 5, autoregressive correlation ρ = 0.2 and variance σ2 = 1, signal-to-noise ratio (SNR) $\nu$= 2.
+
++ We generate outcomes Y following Gaussian distribution. `gen.sim.data` outputs X, Y, indices of true signals, and a vector of true coefficients.
+
+```{r}
+set.seed(1)
+sim.data <- gen.sim.data(n = 100, p = 10, s = 4,
+                         family = "gaussian",
+                         beta.min = 1, beta.max = 5,
+                         rho = 0.2, nu = 2)
+x <- sim.data[[1]]
+y <- sim.data[[2]]
+(true.index <- sim.data[[3]])
+
+true.beta <- sim.data[[4]]
+```
+
++ By default, the two-stage algorithm is used in ProSGPV. 
++ `pro.sgpv` function takes inputs of explanatory variables x, outcome y, outcome type family (default is “gaussian”), stage indicator (default is 2), and a GVIF indicator (default is FALSE). 
++ A print method is available to show labels of the variables selected by ProSGPV.
+
+```{r}
+sgpv.out.2 <- pro.sgpv(x,y)
+sgpv.out.2
+```
+
++  Visualization of variable selection process
+
+```{r}
+plot(sgpv.out.2)
+```
+
+Model Summary
+
+```{r}
+summary(sgpv.out.2)
+```
+
++ `coef` function can be used to extract the coefficient estimates of length p. When signals are sparse, some of estimates are zero. A comparison shows that the estimates are close to the true effect sizes in the simulation.
+
+```{r}
+beta.hat = coef(sgpv.out.2)
+rbind(beta.hat, true.beta)
+```
+
++ `predict` function can be used to predict outcomes using the selected model. 
++ In-sample prediction can be made by calling `predict(sgpv.out.2)` and out-of-sample prediction can be made by feeding new data set into the newdata argument.
+
+```{r}
+preds =predict(sgpv.out.2)
+```
+
+In addition to the two-stage algorithm, one-stage algorithm can also be used to select variables when n > p. The computation time is shorter for the one-stage algorithm at the expense of slightly reduced support recovery rate in the limit.
+
+```{r}
+sgpv.out.1 <- pro.sgpv(x,y,stage=1)
+sgpv.out.1
+```
+
+The one-stage algorithm missed V4 and only selected three variables. What happened?
+
+```{r}
+plot(sgpv.out.1)
+```
+
+## Part 3b
+
+### Vignettes
+
++ [Linear ProSGPV](https://cran.r-project.org/web/packages/ProSGPV/vignettes/linear-vignette.html )
+
++ [GLM and Cox ProSGPV](https://cran.r-project.org/web/packages/ProSGPV/vignettes/glm-cox-vignette.html)
+
+
