@@ -61,6 +61,164 @@ Functions Included:
 
 ## Part 2a
 
+### Statistical Properties
+
+3 inference outcomes:
+
++ Data are consistent with null $p_\delta=1$
++ Data are consistent with alternative $p_\delta=0$
++ Data are inconclusive $0<p_\delta<1$
+
+2 underlying truths:
+
++ Null is true
++ Alternative is true
+
+```{r alt}
+prob.alt.sg = function(n, null.delta, 
+                    theta0=0, 
+                    theta=0,  
+                    V=1, 
+                    alpha=0.05){
+  results = rep(NA, length(n))
+  
+  results = pnorm(sqrt(n)*(theta0-null.delta)/sqrt(V)-sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))+
+    pnorm(-1*sqrt(n)*(theta0+null.delta)/sqrt(V)+sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))
+  
+  results
+}
+```
+
+
+```{r null}
+prob.null.sg = function(n, 
+                        null.delta, 
+                     theta0=0, 
+                     theta=0,
+                     V=1, 
+                     alpha=0.05){
+  results = rep(NA, length(n))
+  
+  if(length(null.delta)>1){
+    con.large = which(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+    con.small = which(null.delta<=(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+    
+    results[con.small] = rep(0, length(con.small))
+    results[con.large] =
+      pnorm(sqrt(n[con.large])*theta0+sqrt(n[con.large])*null.delta[con.large]/sqrt(V)-sqrt(n[con.large])*theta/sqrt(V)-qnorm(1-alpha/2))-
+      pnorm(sqrt(n[con.large])*theta0-sqrt(n[con.large])*null.delta[con.large]/sqrt(V)-sqrt(n[con.large])*theta/sqrt(V)+qnorm(1-alpha/2))
+  }else if(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n))){ 
+    results =
+      pnorm(sqrt(n)*theta0+sqrt(n)*null.delta/sqrt(V)-sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))-
+      pnorm(sqrt(n)*theta0-sqrt(n)*null.delta/sqrt(V)-sqrt(n)*theta/sqrt(V)+qnorm(1-alpha/2))
+  }else{
+    results = rep(0, length(theta))
+  }
+  results
+}
+```
+
+```{r incon}
+prob.incon.sg = function(n, null.delta, 
+                    theta0=0, 
+                    theta=0,  
+                    V=1,
+                    alpha=0.05){
+  results = rep(NA, length(n))
+  
+  con.large = which(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+  con.small = which(null.delta<=(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
+  
+  results = 1-(prob.alt.sg(n, null.delta,
+                        theta0, 
+                        theta, 
+                        V,
+                        alpha)+
+                 prob.null.sg(n, null.delta,
+                           theta0, 
+                           theta,
+                           V, 
+                           alpha))
+  
+  results
+}
+```
+
+```{r}
+theta.1 = seq(-3,3,by=0.01)
+
+plot(theta.1, prob.alt.sg(n=50,
+            null.delta = 0,
+            theta=theta.1), type="l",
+     ylim=c(0,1),
+     xlab="Alternative",
+     ylab="Probability",
+     main="Prob of being consistent with alternative")
+lines(theta.1, prob.alt.sg(n=50,
+            null.delta = 0.5,
+            theta=theta.1),
+      col="green")
+lines(theta.1, prob.alt.sg(n=50,
+            null.delta = 1,
+            theta=theta.1),
+      col="blue")
+abline(h=0.05, lty=2)
+legend("bottomright",
+       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
+       col=c("black", "green","blue"), lty=1)
+
+```
+
+```{r}
+theta.1 = seq(-3,3,by=0.01)
+
+plot(theta.1, prob.null.sg(n=50,
+            null.delta = 0,
+            theta=theta.1), type="l",
+     ylim=c(0,1),
+     xlab="Alternative",
+     ylab="Probability",
+     main="Prob of being consistent with null")
+lines(theta.1, prob.null.sg(n=50,
+            null.delta = 0.5,
+            theta=theta.1),
+      col="green")
+lines(theta.1, prob.null.sg(n=50,
+            null.delta = 1,
+            theta=theta.1),
+      col="blue")
+abline(h=0.05, lty=2)
+legend("bottomright",
+       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
+       col=c("black", "green","blue"), lty=1)
+```
+
+```{r}
+theta.1 = seq(-3,3,by=0.01)
+
+plot(theta.1, prob.incon.sg(n=50,
+            null.delta = 0,
+            theta=theta.1), type="l",
+     ylim=c(0,1),
+     xlab="Alternative",
+     ylab="Probability",
+     main="Prob of being inconclusive")
+lines(theta.1, prob.incon.sg(n=50,
+            null.delta = 0.5,
+            theta=theta.1),
+      col="green")
+lines(theta.1, prob.incon.sg(n=50,
+            null.delta = 1,
+            theta=theta.1),
+      col="blue")
+abline(h=0.05, lty=2)
+legend("bottomright",
+       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
+       col=c("black", "green","blue"), lty=1)
+```
+
+## Part 2b
+
 ### Equivalence tests: TOST
 
 + Establish bioequivalence between data and an established range
@@ -106,8 +264,8 @@ out_sgpv
 set.seed(999)
 iter=500
 n=6
-results = as.data.frame(matrix(ncol=2, nrow=iter))
-colnames(results) = c("sgpv", "tost")
+results = as.data.frame(matrix(ncol=3, nrow=iter))
+colnames(results) = c("sgpv", "tost", "Case")
 half.case = NULL
 half.case2 = NULL
 
@@ -138,6 +296,20 @@ for(i in 1:iter){
   
   results[i,1] = out_sgpv 
   results[i,2] = pmax(out_TOST$TOST$p.value[2],out_TOST$TOST$p.value[3]) 
+  
+  if(theta_m<a & theta_p>a & theta_p<b){
+    # Case 4 some overlap
+    results[i,3] = "\n Case 4: \nPartial Overlap"
+  }else if(theta_m<b & theta_p>b & theta_m>a){
+    # Case 3 some overlap
+    results[i,3] = "\n Case 3: \nPartial Overlap"
+  }else if(theta_m>b | theta_p<a){
+    # Case 1 no overlap
+    results[i,3] = "\n Case 1: \nNo Overlap"
+  }else if((theta_m>a & theta_p<b)|(theta_m<=a & theta_p>=b)){
+    # Case 2 complete overlap
+    results[i,3] = "\n Case 2: \nComplete Overlap"
+  }
 }
 
 
@@ -183,8 +355,32 @@ g = ggplot(results, aes(sgpv, tost))+
 g
 ```
 
+```{r fig4, message=FALSE, warning=FALSE, fig.width=6,fig.height=3}
+ggplot(results, aes(sgpv, tost, col=Case, pch=Case))+
+  geom_point(aes(), cex=1.5) +
+  # geom_jitter(width = 0.02, height = 0.02)+
+  # ggtitle(paste0("Derived Sample Size= ",n," Iterations= ", iter))+
+  xlab("SGPV") +
+  ylab("TOST Eq PV") +
+  # facet_wrap(~ Case) +
+  geom_abline(intercept = 1, slope = -1,linetype='dashed', alpha=0.6)+
+  scale_color_manual(values=c("#0000B9",
+                              "#00A300",
+                              "#FD49A0",
+                              "#FFA500",
+                              "black"))+
+  scale_shape_manual(values=c(16,21,17,24,21))+
+    guides(alpha=FALSE)+
+  scale_y_continuous(labels=scaleFUN)+ 
+  scale_x_continuous(labels=scaleFUN)+
+  guides(color = guide_legend(byrow = TRUE))+
+   theme_bw()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.spacing.y = unit(0.3, 'cm'))
+```
 
-## Part 2b
+## Part 2c
 
 ### SGPV False Discovery Risk
 
@@ -246,6 +442,103 @@ fdrisk(sgpval = 1,
 ###
 ##
 #
+```
+
+False Discovery and Confirmation Rates
+
+```{r}
+power.pv=function(n=20,sd=1,alpha=0.05,mu.l=-3,mu.u=3,delta=0.3,mu.0=0,r=1){
+
+  ## Computes power when delta is zero and non-zero
+  ## Inputs:
+  ## n is sample size 
+  ## indifference zone is: mu.0 +/- delta
+  ## alternative space is: mu in [mu.l, mu.u]
+  ## data ~ N(mu,sd)
+  ## r = P(H1)/P(H0) for simple H1 and H0
+  
+  mu=seq(mu.l,mu.u,0.01)
+  
+  ## Power (null is mu.0 ; alt is mu)
+  pow1.d=pnorm(-sqrt(n)*(delta-(mu.0-mu))/sd-qnorm(1-alpha/2))
+  pow2.d=pnorm(-sqrt(n)*(delta+(mu.0-mu))/sd-qnorm(1-alpha/2))
+  power.d=pow1.d+pow2.d
+  
+  ## Power without indifference zone (delta=0)
+  pow1.0=pnorm(-sqrt(n)*(0-(mu.0-mu))/sd-qnorm(1-alpha/2))
+  pow2.0=pnorm(-sqrt(n)*(0+(mu.0-mu))/sd-qnorm(1-alpha/2))
+  power.0=pow1.0+pow2.0
+  
+  ## Type I error (null is mu.0 ; alt is mu.0)
+  alpha.d=2*pnorm(-sqrt(n)*(delta)/sd-qnorm(1-alpha/2))
+  
+  ## Type I error without indifference zone (delta=0)
+  alpha.0=2*pnorm(-sqrt(n)*(0)/sd-qnorm(1-alpha/2))
+  
+  ## P(sgpv=1|H0) not quite alpha b/c rules out inconclusive
+  gam1.0=pnorm(sqrt(n)*(delta)/sd-qnorm(1-alpha/2))
+  gam2.0=pnorm(sqrt(n)*(-delta)/sd+qnorm(1-alpha/2))
+  gam.0=(gam1.0-gam2.0)*(delta>qnorm(1-alpha/2)*sd/sqrt(n))
+  
+  ##
+  gam1.a=pnorm(sqrt(n)*(delta+mu.0-mu)/sd-qnorm(1-alpha/2))
+  gam2.a=pnorm(sqrt(n)*(mu.0-delta-mu)/sd+qnorm(1-alpha/2))
+  gam.a=(gam1.a-gam2.a)*(delta>qnorm(1-alpha/2)*sd/sqrt(n))
+  
+  ## False discovery rates (fdr1=FDR ; fdr0=FNDR)
+  fdr.d = 1 / (1 + power.d/alpha.d * r)
+  fndr.0 = 1 / (1 + (1-alpha.0)/(1-power.0) * (1/r))
+  
+  fdr.0 = 1 / (1 + power.0/alpha.0 * r)
+  fndr.d = 1 / (1 + gam.0/gam.a * (1/r))
+  
+  ret=cbind(mu,alpha.d,power.d,fdr.d,fndr.d,
+	  			alpha.0,power.0,fdr.0,fndr.0,gam.0,gam.a)
+  colnames(ret)=c('mu','alpha.d','power.d','fdr.d','fndr.d',
+  						'alpha.0','power.0','fdr.0','fndr.0',
+							'gam.0','gam.a')
+  ret
+}
+```
+
+```{r, fig.height=6, fig.width=8}
+par(mfrow=c(1,1))
+prev.ratio=1
+set.delta=0.5
+set.n=16
+
+all=power.pv(delta=set.delta,n=set.n,r=prev.ratio,alpha=0.05)
+
+plot(all[,'mu'],all[,'fdr.0'],type="n",ylab="Probability",xlab="Alternative in SD units",
+     ylim=c(0,prev.ratio/(prev.ratio+1)),xlim=c(-3,3))
+title(main="False discovery and confirmation rates")
+
+lines(all[,'mu'],all[,'fdr.0'],col="firebrick",lwd=1,lty=2)
+lines(all[,'mu'],all[,'fndr.0'],col="dodgerblue",lwd=1,lty=2)
+
+lines(all[,'mu'],all[,'fdr.d'],col="firebrick",lwd=2)
+lines(all[,'mu'],all[,'fndr.d'],col="dodgerblue",lwd=2)
+
+legend("topleft",c("",
+                   expression(paste("P-value < ",0.05,sep="")),
+                   expression(paste(P[delta]," = 0",sep="")),
+                   "", "",
+                   expression(paste("P-value > ",0.05,sep="")),
+                   expression(paste(P[delta]," = 1",sep=""))),
+       col=c("","firebrick","firebrick","","",
+             "dodgerblue","dodgerblue"),
+       lty=c(NA,2,1,NA,NA,2,1),lwd=c(NA,1,2,NA,NA,1,2),bty="n")
+
+text(-2.875,0.5,"FDR")
+text(-2.875,0.42,"FCR")
+
+axis(side = 1, at = c(-set.delta,set.delta),cex.axis=0.8,col.ticks="black",lwd.ticks=1.5,tcl=0.6,labels=FALSE)
+axis(side = 3, at = c(-set.delta,set.delta),cex.axis=0.8,col.ticks="black",lwd.ticks=1.5,tcl=0.6,labels=FALSE)
+
+text(0,-0.0125,expression(paste(H[0]," Zone",sep="")),cex=0.8)
+text(0,prev.ratio/(prev.ratio+1)*1.015,expression(paste(H[0]," Zone",sep="")),cex=0.8)
+
+text(2.5,0.05/(prev.ratio+0.05)+.01,"alpha/(alpha+r)")
 ```
 
 ### FDRestimation
@@ -417,4 +710,841 @@ if(tail(try.mids,1)<0.5){
 }
 
 pi0.hat
+```
+
+## Part 2d
+
+### Study Planning
+
+Purpose: Evaluate how different techniques of setting the indifference zone effect the SGPV study properties. 
+
+What options does a collaborator have when they are uncertain of the indifference zone? 
+
+#### Fixed Intervals {-}
+
+```{r}
+n= seq(1,250, by=0.1)
+V=1
+alpha=0.05
+
+null.delta0 = rep(0.5, length(n))
+null.delta1 = rep(0, length(n))
+null.delta2 = rep(1.25, length(n))
+null.delta3 = rep(1, length(n))
+null.delta4 = rep(0.75, length(n))
+null.delta5 = rep(0.25, length(n))
+
+ci.bound = qnorm(1-alpha/2)*sqrt(V)/sqrt(n)
+```
+
+```{r fig.height=5, fig.width=6, message=FALSE, warning=FALSE}
+plot(n, null.delta1, 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,3),
+     ylab=TeX(r'(Half Interval Width $ (\delta)$)'),
+     xlab = "Sample Size (n)",
+     main="")
+lines(n, null.delta2,
+      col="blue",
+      lwd=2)
+lines(n, null.delta3,
+      col="purple",
+      lwd=2)
+lines(n, null.delta4,
+      col="darkgreen",
+      lwd=2)
+lines(n, null.delta5,
+      col="orange",
+      lwd=2)
+lines(n, null.delta0,
+      col="hotpink",
+      lwd=2)
+lines(n, ci.bound,
+      col="black",
+      lty=2,
+      lwd=2)
+# abline(h=0.05, col="black", lty=2)
+legend(130, 
+       3,
+        col=c("black",
+             "red",
+             "blue",
+             "purple",
+             "darkgreen",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(2,
+             1,
+             1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.65,
+       lwd=2,
+       legend=c(TeX(r'(Uncertainty Interval $\left(\sqrt{1/n}\right)$)'),
+                "Point Null: Constant at 0",
+                "SGPV: Constant at 1.25", 
+                "SGPV: Constant at 1",
+                "SGPV: Constant at 0.75",
+                "SGPV: Constant at 0.5",
+                "SGPV: Constant at 0.25"))
+
+```
+
+```{r fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+par(mar=c(2,2,2,2))
+
+plot(n, prob.alt.sg(n, null.delta1,
+                  theta=0), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,0.055),
+     ylab="", 
+     main=TeX(r'(Type 1 Error $\beta_0$)'))
+lines(n, prob.alt.sg(n, null.delta2,
+                  theta=0),
+      col="blue",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta3,
+                  theta=0),
+      col="purple",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta4,
+                  theta=0),
+      col="darkgreen",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta5,
+                  theta=0),
+      col="orange",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta0,
+                  theta=0),
+      col="hotpink",
+      lwd=2)
+abline(h=0.05, col="black", lty=2)
+
+plot(n, prob.alt.sg(n, null.delta1,
+                  theta=1), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Power $\beta_1$)'))
+lines(n, prob.alt.sg(n, null.delta2,
+                  theta=1),
+      col="blue",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta3,
+                  theta=1),
+      col="purple",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta4,
+                  theta=1),
+      col="darkgreen",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta5,
+                  theta=1),
+      col="orange",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta0,
+                  theta=1),
+      col="hotpink",
+      lwd=2)
+legend(70, 0.5,
+       col=c("red",
+             "blue",
+             "purple",
+             "darkgreen",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.7,
+       lwd=2,
+       legend=c("Point Null: Constant at 0",
+                "SGPV: Constant at 1.25", 
+                "SGPV: Constant at 1",
+                "SGPV: Constant at 0.75",
+                "SGPV: Constant at 0.5",
+                "SGPV: Constant at 0.25"))
+```
+
+```{r fig.width=6, fig.height=4}
+par(mfrow=c(1,1))
+par(mar=c(4,4,2,2))
+
+plot(n, prob.null.sg(n, null.delta1,
+                  theta=0)+prob.alt.sg(n, null.delta1,
+                  theta=1), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,2),
+     ylab=TeX(r'( $\beta_1$ + $\omega_0$)'), 
+     main= TeX(r'(Sum of Power and Probability of Null ($\beta_1$ +$\omega_0$))'))
+lines(n, prob.null.sg(n, null.delta2,
+                  theta=0)+prob.alt.sg(n, null.delta2,
+                  theta=1),
+      col="blue",
+      lwd=2)
+# lines(n, prob.null.sg(n, null.delta3,
+#                   theta=0),
+#       col="purple",
+#       lwd=2)
+lines(n, prob.null.sg(n, null.delta4,
+                  theta=0)+prob.alt.sg(n, null.delta4,
+                  theta=1),
+      col="darkgreen",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta5,
+                  theta=0)+prob.alt.sg(n, null.delta5,
+                  theta=1),
+      col="orange",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta0,
+                  theta=0)+prob.alt.sg(n, null.delta0,
+                  theta=1),
+      col="hotpink",
+      lwd=2)
+legend(172, 0.7,
+       col=c("red",
+             "blue",
+             "purple",
+             "darkgreen",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1,
+             1,
+             2,
+             2,
+             2,
+             2,
+             2,
+             2),
+       cex=0.7,
+       lwd=2,
+       legend=c(TeX(r'( Constant at 0)'),
+                TeX(r'(Constant at 1.25)'), 
+                 TeX(r'( Constant at 1)'), 
+                 TeX(r'( Constant at 0.75)'), 
+                 TeX(r'(Constant at 0.5)'), 
+                 TeX(r'( Constant at 0.25)')))
+```
+
+```{r fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+par(mar=c(2,2,4,2))
+
+plot(n, prob.null.sg(n, null.delta1,
+                  theta=0), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main= TeX(r'(Probability of Null $\omega_0$)'))
+lines(n, prob.null.sg(n, null.delta2,
+                  theta=0),
+      col="blue",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta3,
+                  theta=0),
+      col="purple",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta4,
+                  theta=0),
+      col="darkgreen",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta5,
+                  theta=0),
+      col="orange",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta0,
+                  theta=0),
+      col="hotpink",
+      lwd=2)
+
+plot(n, prob.null.sg(n, null.delta1,
+                  theta=1), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Probability of Null $\omega_1$)'))
+lines(n, prob.null.sg(n, null.delta2,
+                  theta=1),
+      col="blue",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta3,
+                  theta=1),
+      col="purple",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta4,
+                  theta=1),
+      col="darkgreen",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta5,
+                  theta=1),
+      col="orange",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta0,
+                  theta=1),
+      col="hotpink",
+      lwd=2)
+legend(70, 0.5,
+       col=c("red",
+             "blue",
+             "purple",
+             "darkgreen",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.7,
+       lwd=2,
+       legend=c("Point Null: Constant at 0",
+                "SGPV: Constant at 1.25", 
+                "SGPV: Constant at 1",
+                "SGPV: Constant at 0.75",
+                "SGPV: Constant at 0.5",
+                "SGPV: Constant at 0.25"))
+```
+
+```{r fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+par(mar=c(2,2,4,2))
+
+plot(n,prob.incon.sg(n, null.delta1,
+                  theta=0), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Probability of Inconclusive $\gamma_0$)'))
+lines(n,prob.incon.sg(n, null.delta2,
+                  theta=0),
+      col="blue",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta3,
+                  theta=0),
+      col="purple",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta4,
+                  theta=0),
+      col="darkgreen",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta5,
+                  theta=0),
+      col="orange",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta0,
+                  theta=0),
+      col="hotpink",
+      lwd=2)
+
+plot(n,prob.incon.sg(n, null.delta1,
+                  theta=1), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Probability of Inconclusive $\gamma_1$)'))
+lines(n,prob.incon.sg(n, null.delta2,
+                  theta=1),
+      col="blue",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta3,
+                  theta=1),
+      col="purple",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta4,
+                  theta=1),
+      col="darkgreen",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta5,
+                  theta=1),
+      col="orange",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta0,
+                  theta=1),
+      col="hotpink",
+      lwd=2)
+legend(90, 0.8,
+       col=c("red",
+             "blue",
+             "purple",
+             "darkgreen",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.7,
+       lwd=2,
+       legend=c("Point Null: Constant at 0",
+                "SGPV: Constant at 1.25", 
+                "SGPV: Constant at 1",
+                "SGPV: Constant at 0.75",
+                "SGPV: Constant at 0.5",
+                "SGPV: Constant at 0.25"))
+```
+
+#### Shrinking from 0.9 to 0.45 {-}
+
+Let's see how these look on a plot:
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+n= seq(1,250, by=0.1)
+V=1
+k=0.9
+alpha.set=0.05
+  
+null.delta0 = rep(k, length(n))
+null.delta1 = rep(0, length(n))
+null.delta2 = (k-(k/2))*sqrt(V)/n^(1/4)+(k/2)
+null.delta4 = (k-(k/2))*sqrt(V)/n^(1/3)+(k/2)
+null.delta5 = (k-(k/2))*sqrt(V)/n^(1/2)+(k/2)
+
+ci.bound = qnorm(1-alpha.set/2)*sqrt(V)/sqrt(n)
+```
+
+```{r fig.height=8, fig.width=9, message=FALSE, warning=FALSE}
+n2= seq(-10,300, by=0.1)
+  
+plot(n, ci.bound, 
+     type="n",
+     col="black",
+     lty=2,
+     lwd=2,
+     ylim=c(-2,2.2),
+     xlim=c(0,225),
+     ylab="",
+     xlab = "Sample Size (n)",
+     main="",
+     yaxt = "n")
+# lines(n, -1*ci.bound,
+#       col="black",
+#       lty=2,
+#       lwd=2)
+lines(n, null.delta2,
+      col="blue",
+      lwd=2)
+lines(n, -1*null.delta2,
+      col="blue",
+      lwd=2)
+lines(n, null.delta4,
+      col="hotpink",
+      lwd=2)
+lines(n, -1*null.delta4,
+      col="hotpink",
+      lwd=2)
+lines(n, null.delta5,
+      col="orange",
+      lwd=2)
+lines(n, -1*null.delta5,
+      col="orange",
+      lwd=2)
+abline(h=k, col="black", lty=1,lwd=2)
+abline(h=-1*k, col="black", lty=1,lwd=2)
+abline(h=0, col="red", lty=1,lwd=2)
+abline(h=1, col="red", lty=2,lwd=2)
+polygon(c(n2, rev(n2)), c(rep(-1*k, length(n2)), rev(rep(-1*(k/2), length(n2)))),
+        border = NA,
+        col = rgb(210/633,210/633,210/633, alpha = 0.2))
+polygon(c(n2, rev(n2)), c(rep((k/2), length(n2)), rev(rep(k, length(n2)))),
+        border = NA,
+        col = rgb(210/633,210/633,210/633, alpha = 0.2))
+axis(2, at = c(-2,-1,-0.9,-0.45,0,
+               2,1,0.9,0.45),
+     labels = c(-2,-1,-0.9,-0.45,TeX(r'($\theta_0=0$)'),
+               2,TeX(r'($\theta_1=1$)'),0.9,0.45),
+     las=1)
+legend(135, 
+       2.25,
+       col=c("red",
+             "red",
+             "black",
+             "blue",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             2,
+             1,
+             1,
+             1,
+             1),
+       cex=0.9,
+       lwd=2,
+       legend=c(TeX(r'(Null Hypothesis $\theta_0=0$)'),
+                TeX(r'(Alternative Hypothesis $\theta_1=1$)'),
+                "Original SGPV: Constant at 0.9", 
+                TeX(r'($delta_1(n)\propto n^{-1/4}$)'),
+                TeX(r'($delta_2(n)\propto n^{-1/3}$)'),
+                 TeX(r'($delta_3(n)\propto n^{-1/2}$)')))
+
+```
+
+
+### Probability Plots
+
+```{r fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+par(mar=c(2,2,2,2))
+
+plot(n, prob.alt.sg(n, null.delta1,
+                  theta=0,
+                  alpha=alpha.set), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,0.055),
+     ylab="", 
+     main=TeX(r'(Type 1 Error $\beta_0$)'))
+lines(n, prob.alt.sg(n, null.delta2,
+                  theta=0,
+                  alpha=alpha.set),
+      col="blue",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta0,
+                  theta=0,
+                  alpha=alpha.set),
+      col="black",
+      lwd=2)
+# lines(n, prob.alt.sg(n, null.delta3,
+#                   theta=0),
+#       col="hotpink",
+#       lwd=2)
+lines(n, prob.alt.sg(n, null.delta4,
+                  theta=0,
+                  alpha=alpha.set),
+      col="hotpink",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta5,
+                  theta=0,
+                  alpha=alpha.set),
+      col="orange",
+      lwd=2)
+abline(h=0.05, col="black", lty=2)
+
+plot(n, prob.alt.sg(n, null.delta1,
+                  theta=1,
+                  alpha=alpha.set), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Power $\beta_1$)'))
+lines(n, prob.alt.sg(n, null.delta2,
+                  theta=1,
+                  alpha=alpha.set),
+      col="blue",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta0,
+                  theta=1,
+                  alpha=alpha.set),
+      col="black",
+      lwd=2)
+# lines(n, prob.alt.sg(n, null.delta3,
+#                   theta=1),
+#       col="hotpink",
+#       lwd=2)
+lines(n, prob.alt.sg(n, null.delta4,
+                  theta=1,
+                  alpha=alpha.set),
+      col="hotpink",
+      lwd=2)
+lines(n, prob.alt.sg(n, null.delta5,
+                  theta=1,
+                  alpha=alpha.set),
+      col="orange",
+      lwd=2)
+legend(70, 0.8,
+       col=c("red",
+             "black",
+             "blue",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.7,
+       lwd=2,
+       legend=c("Point Null: Constant at 0",
+                "Original SGPV: Constant at 0.9",
+                TeX(r'($n^{-1/4}$)'),
+                TeX(r'($n^{-1/3}$)'),
+                TeX(r'($n^{-1/2}$)')))
+```
+
+```{r fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+par(mar=c(2,2,2,2))
+
+plot(n, prob.null.sg(n, null.delta1,
+                  theta=0,
+                  alpha=alpha.set), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main= TeX(r'(Probability of Null $\omega_0$)'))
+lines(n, prob.null.sg(n, null.delta2,
+                  theta=0,
+                  alpha=alpha.set),
+      col="blue",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta0,
+                  theta=0,
+                  alpha=alpha.set),
+      col="black",
+      lwd=2)
+# lines(n, prob.null.sg(n, null.delta3,
+#                   theta=0),
+#       col="hotpink",
+#       lwd=2)
+lines(n,prob.null.sg(n, null.delta4,
+                  theta=0,
+                  alpha=alpha.set),
+      col="hotpink",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta5,
+                  theta=0,
+                  alpha=alpha.set),
+      col="orange",
+      lwd=2)
+
+plot(n, prob.null.sg(n, null.delta1,
+                  theta=1,
+                  alpha=alpha.set), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Probability of Null $\omega_1$)'))
+lines(n, prob.null.sg(n, null.delta2,
+                  theta=1,
+                  alpha=alpha.set),
+      col="blue",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta0,
+                  theta=1,
+                  alpha=alpha.set),
+      col="black",
+      lwd=2)
+# lines(n, prob.null.sg(n, null.delta3,
+#                   theta=1),
+#       col="hotpink",
+#       lwd=2)
+lines(n, prob.null.sg(n, null.delta4,
+                  theta=1,
+                  alpha=alpha.set),
+      col="hotpink",
+      lwd=2)
+lines(n, prob.null.sg(n, null.delta5,
+                  theta=1,
+                  alpha=alpha.set),
+      col="orange",
+      lwd=2)
+legend(70, 0.75,
+       col=c("red",
+             "black",
+             "blue",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.7,
+       lwd=2,
+       legend=c("Point Null: Constant at 0",
+                "Original SGPV: Constant at 0.9",
+                TeX(r'($n^{-1/4}$)'),
+                TeX(r'($n^{-1/3}$)'),
+                TeX(r'($n^{-1/2}$)')))
+
+```
+
+```{r fig.width=8, fig.height=4}
+par(mfrow=c(1,2))
+par(mar=c(2,2,2,2))
+
+plot(n,prob.incon.sg(n, null.delta1,
+                  theta=0,
+                 alpha=alpha.set), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Probability of Inconclusive $\gamma_0$)'))
+lines(n,prob.incon.sg(n, null.delta2,
+                  theta=0,
+                  alpha=alpha.set),
+      col="blue",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta0,
+                  theta=0,
+                  alpha=alpha.set),
+      col="black",
+      lwd=2)
+# lines(n,prob.incon.sg(n, null.delta3,
+#                   theta=0),
+#       col="hotpink",
+#       lwd=2)
+lines(n,prob.incon.sg(n, null.delta4,
+                  theta=0,
+                  alpha=alpha.set),
+      col="hotpink",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta5,
+                  theta=0,
+                  alpha=alpha.set),
+      col="orange",
+      lwd=2)
+
+plot(n,prob.incon.sg(n, null.delta1,
+                  theta=1,
+                 alpha=alpha.set), 
+     type="l",
+     col="red",
+     lwd=2,
+     ylim=c(0,1),
+     ylab="", 
+     main=TeX(r'(Probability of Inconclusive $\gamma_1$)'))
+lines(n,prob.incon.sg(n, null.delta2,
+                  theta=1,
+                  alpha=alpha.set),
+      col="blue",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta0,
+                  theta=1,
+                  alpha=alpha.set),
+      col="black",
+      lwd=2)
+# lines(n,prob.incon.sg(n, null.delta3,
+#                   theta=1),
+#       col="hotpink",
+#       lwd=2)
+lines(n,prob.incon.sg(n, null.delta4,
+                  theta=1,
+                  alpha=alpha.set),
+      col="hotpink",
+      lwd=2)
+lines(n,prob.incon.sg(n, null.delta5,
+                  theta=1,
+                  alpha=alpha.set),
+      col="orange",
+      lwd=2)
+legend(70, 0.55,
+       col=c("red",
+             "black",
+             "blue",
+             "hotpink",
+             "orange"),
+       box.lty=0,
+       lty=c(1,
+             1,
+             1,
+             1,
+             1),
+       cex=0.7,
+       lwd=2,
+       legend=c("Point Null: Constant at 0",
+                "Original SGPV: Constant at 0.9",
+                TeX(r'($n^{-1/4}$)'),
+                TeX(r'($n^{-1/3}$)'),
+                TeX(r'($n^{-1/2}$)')))
+```
+
+### COVID Clinical Trail Example
+
++ Randomized 1,591 patients to ivermectin treatment or placebo
++ Mean time spent unwell was estimated using a longitudinal ordinal regression model;   range was 0 to 14 days
++ Patients reported each day their symptoms and severity, health care visits, and medications. 
++ “The difference in the amount of time spent feeling unwell with COVID was estimated to be 0.49 days in favor of ivermectin with a 95% credible interval of (0.15, 0.82).”
+
+```{r message=FALSE, warning=FALSE}
+#Setup
+theta0 = 0
+point = 0.49 
+data.lo = 0.15
+data.hi = 0.82 
+n=1591
+
+data.sd=0.17
+
+library(sgpv)
+```
+
+#### 1 day difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -1,
+         null.hi = 1)
+```
+
+#### Shrinking {-}
+
+```{r}
+k=1.5
+V=data.sd^2
+
+shrink.int=(k-(k/2))*sqrt(V)/(n^(1/2))+(k/2)
+
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -1*shrink.int,
+         null.hi = shrink.int)
+```
+
+```{r}
+k=0.75
+
+shrink.int=(k-(k/2))*sqrt(V)/n^(1/2)+(k/2)
+
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -1*shrink.int,
+         null.hi = shrink.int)
 ```

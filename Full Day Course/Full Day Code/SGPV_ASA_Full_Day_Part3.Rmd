@@ -54,7 +54,7 @@ data(lung)
 
 ```{r}
 set.seed(1)
-sim.data <- gen.sim.data(n = 100, p = 10, s = 4,
+sim.data <- gen.sim.data(n = 50, p = 10, s = 4,
                          family = "gaussian",
                          beta.min = 1, beta.max = 5,
                          rho = 0.2, nu = 2)
@@ -72,6 +72,9 @@ true.beta <- sim.data[[4]]
 ```{r}
 sgpv.out.2 <- pro.sgpv(x,y)
 sgpv.out.2
+
+# true.beta
+true.index
 ```
 
 +  Visualization of variable selection process
@@ -97,7 +100,9 @@ rbind(beta.hat, true.beta)
 + In-sample prediction can be made by calling `predict(sgpv.out.2)` and out-of-sample prediction can be made by feeding new data set into the newdata argument.
 
 ```{r}
-preds =predict(sgpv.out.2)
+preds = predict(sgpv.out.2)
+
+cbind(preds, y)
 ```
 
 In addition to the two-stage algorithm, one-stage algorithm can also be used to select variables when n > p. The computation time is shorter for the one-stage algorithm at the expense of slightly reduced support recovery rate in the limit.
@@ -115,7 +120,7 @@ plot(sgpv.out.1)
 
 ## Part 3b
 
-### Vignettes
+### Vignettes {-}
 
 + [Linear ProSGPV](https://cran.r-project.org/web/packages/ProSGPV/vignettes/linear-vignette.html )
 

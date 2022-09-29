@@ -56,6 +56,10 @@ devtools::install_github("weltybiostat/sgpv")
 install.packages("sgpv")
 ```
 
+```{r}
+?sgpv::sgpvalue
+```
+
 Functions Included:
 
 + `sgpvalue()`
@@ -79,7 +83,7 @@ Functions Included:
 + Mean time spent unwell was estimated using a longitudinal ordinal regression model;   range was 0 to 14 days
 + Patients reported each day their symptoms and severity, health care visits, and medications. 
 + “The difference in the amount of time spent feeling unwell with COVID was estimated to be 0.49 days in favor of ivermectin with a 95% credible interval of (0.15, 0.82).” 
-+ [https://www.medrxiv.org/content/10.1101/2022.06.10.22276252v1](Link to Preprint)
++ [Link to Preprint](https://www.medrxiv.org/content/10.1101/2022.06.10.22276252v1)
 
 ```{r message=FALSE, warning=FALSE}
 #Setup
@@ -504,7 +508,7 @@ plot(c(1:nrow(leukstats)),
      ylab="Probability",
      xlab="Number of Rejected Hypotheses (index)")
 lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
-
+lines(c(1:nrow(leukstats)), sort(      FDRestimation::p.fdr(leukstats$p.value)$fdrs), col="blue")
 ```
 
 + For 1/2 < Fold Change < 2 (Delta = 0.3)
@@ -538,6 +542,27 @@ points(rank(leukstats$p.value,
 lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
 lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
 lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
+lines(c(1:nrow(leukstats)), sort(      FDRestimation::p.fdr(leukstats$p.value)$fdrs), col="blue")
+
+```
+
+```{r}
+#Put SGPVs on plot
+plot(c(1:nrow(leukstats)), 
+     sort(leukstats$p.value), 
+     ylim=c(0,1),
+     type="l",
+     main=" Inference by Tail area, delta = 0.1",
+     ylab="Probability",
+     xlab="Number of Rejected Hypotheses (index)")
+points(rank(leukstats$p.value,
+            ties.method = "first"),  sgpvalue(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.1, null.hi=0.1)$p.delta, col="green",
+       cex=0.2)
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
+lines(c(1:nrow(leukstats)), sort(      FDRestimation::p.fdr(leukstats$p.value)$fdrs), col="blue")
 
 ```
 
@@ -559,6 +584,26 @@ points(rank(leukstats$p.value,
 lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
 lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
 lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
+lines(c(1:nrow(leukstats)), sort(      FDRestimation::p.fdr(leukstats$p.value)$fdrs), col="blue")
+```
+
+```{r}
+#Put SGPVs on plot
+plot(c(1:nrow(leukstats)), 
+     sort(leukstats$p.value), 
+     ylim=c(0,1),
+     type="l",
+     main=" Inference by Tail area, delta = 1e-06",
+     ylab="Probability",
+     xlab="Number of Rejected Hypotheses (index)")
+points(rank(leukstats$p.value,
+            ties.method = "first"),  sgpvalue(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
+		null.lo=-0.000001, null.hi=0.000001)$p.delta, col="green",
+       cex=0.2)
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
+lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
+lines(c(1:nrow(leukstats)), sort(      FDRestimation::p.fdr(leukstats$p.value)$fdrs), col="blue")
 
 ```
 
@@ -672,145 +717,125 @@ axis(side=2,at=round(log(c(1/1000,1/100,1/10,1/2,1,2,10,100,1000),
 + Null is true
 + Alternative is true
 
-```{r alt}
-prob.alt.sg = function(n, null.delta, 
-                    theta0=0, 
-                    theta=0,  
-                    V=1, 
-                    alpha=0.05){
-  results = rep(NA, length(n))
-  
-  results = pnorm(sqrt(n)*(theta0-null.delta)/sqrt(V)-sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))+
-    pnorm(-1*sqrt(n)*(theta0+null.delta)/sqrt(V)+sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))
-  
-  results
-}
-```
+### CIs can miss (bummer) {-}
 
+```{r}
+cidemo = function(rep=100,
+                  mu=0.8,
+                  n=200,
+                  alpha=0.05,
+                  ylb="Probability",
+                  ltype=1,
+                  lcol=4,
+                  ltype1=1,
+                  lwd1=2,
+                  lcol1=2,
+                  plotset=F,
+                  hilim=1,
+                  lolim=0.5,
+                  bcol="lemonchiffon2",
+                  xleg=45,
+                  yleg=0.65,
+                  idz.lo=0.75,
+                  idz.hi=0.85,
+                  zone=TRUE){
 
-```{r null}
-prob.null.sg = function(n, 
-                        null.delta, 
-                     theta0=0, 
-                     theta=0,
-                     V=1, 
-                     alpha=0.05){
-  results = rep(NA, length(n))
+  cints=matrix(0,3,rep)
   
-  if(length(null.delta)>1){
-    con.large = which(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
-    con.small = which(null.delta<=(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
-    
-    results[con.small] = rep(0, length(con.small))
-    results[con.large] =
-      pnorm(sqrt(n[con.large])*theta0+sqrt(n[con.large])*null.delta[con.large]/sqrt(V)-sqrt(n[con.large])*theta/sqrt(V)-qnorm(1-alpha/2))-
-      pnorm(sqrt(n[con.large])*theta0-sqrt(n[con.large])*null.delta[con.large]/sqrt(V)-sqrt(n[con.large])*theta/sqrt(V)+qnorm(1-alpha/2))
-  }else if(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n))){ 
-    results =
-      pnorm(sqrt(n)*theta0+sqrt(n)*null.delta/sqrt(V)-sqrt(n)*theta/sqrt(V)-qnorm(1-alpha/2))-
-      pnorm(sqrt(n)*theta0-sqrt(n)*null.delta/sqrt(V)-sqrt(n)*theta/sqrt(V)+qnorm(1-alpha/2))
-  }else{
-    results = rep(0, length(theta))
+  cints[1,]=seq(1,rep,1)
+  sigma=sqrt(mu*(1-mu))
+  
+  for (i in 1:rep) {
+  
+  dat=rbinom(n,1,prob=mu)
+  
+  ## Standard normal quantile
+  za=abs(qnorm(alpha/2))
+  
+  ## upper CI limit
+  cints[2,i]=mean(dat)+za*sigma/sqrt(n) 
+  
+  ## Lower CI limit
+  cints[3,i]=mean(dat)-za*sigma/sqrt(n)
   }
-  results
+  
+  if (plotset==T){
+    lolim=mu-5*sigma/sqrt(n)
+    hilim=mu+5*sigma/sqrt(n)
+  }
+  
+  if (sigma!=1){
+    plot(cints[1,],cints[2,],ylim=c(lolim,hilim),type="n",
+    main=paste("95% Confidence Intervals for the Probability\n Sample Size of ",n," per Endpoint"),
+    ylab=ylb,xlab="Replication")
+	}
+  	
+  if (sigma==1){
+  	plot(cints[1,],cints[2,],ylim=c(lolim,hilim),type="n",
+  	main=paste("95% Confidence Intervals on the Standardized Effect Size \n Sample Size of ",n," per Endpoint"),
+  	ylab="Standardized Effect Size (X/sigma units)",xlab="Endpoint Identification Number")
+  	}
+
+  if (zone==TRUE) {			
+    polygon(c(0,rep,rep,0),c(idz.hi,idz.hi,idz.lo,idz.lo),density=200,col=bcol)
+  }
+  			
+  abline(h=mu)
+  points(cints[1,],cints[2,],cex=0.6,pch=16,col=lcol)
+  points(cints[1,],cints[3,],cex=0.6,pch=16,col=lcol)
+  segments(cints[1,], cints[2,], cints[1,], cints[3,],lty=ltype,col=lcol)
+  
+  ct=0
+  ct2=0
+  for (i in 1:rep) {
+  
+    if (cints[2,i]<mu | cints[3,i]>mu){
+    	segments(cints[1,i], cints[2,i], 
+    	         cints[1,i],cints[3,i],
+    	         lty=ltype1,col=lcol1,lwd=lwd1) 
+    	points(cints[1,i],cints[2,i],cex=0.6,pch=16,col=lcol1)
+    	points(cints[1,i],cints[3,i],cex=0.6,pch=16,col=lcol1)
+    	ct=ct+1}
+    	
+    if (cints[2,i]<idz.lo | cints[3,i]>idz.hi){
+      ct2=ct2+1
+    }
+  }
+  
+  if (rep>100){
+    abline(h=idz.hi,col=bcol,lty=2,lwd=1.5)
+    abline(h=idz.lo,col=bcol,lty=2,lwd=1.5)
+  }
+  
+  ## prob of missing indifference zone
+  ## P(CI upper limit<idz.lo) +P(CI lower limit>idz.hi) 
+  miss.idz=pnorm(-za+idz.lo*sqrt(n)/sigma)+pnorm(-za-idz.hi*sqrt(n)/sigma)
+  
+  if (zone==TRUE){
+    legend(xleg,yleg,bty="n",
+    c(paste("Missed True Value:             ",ct," / ",rep,sep=""),
+    paste("Missed Indifference Zone:   ",ct2," / ",rep,sep="")))
+  }
+    
+  if (zone!=TRUE){
+    legend(xleg,yleg,bty="n",
+    c(paste("Missed True Value:             ",
+            ct," / ",rep,sep="")))
+  }
+  
 }
+
+set.seed(999)
+
+cidemo(n=75,zone=FALSE)
+cidemo(n=75,zone=FALSE)
+cidemo(n=400,zone=FALSE)
+cidemo(n=400,zone=FALSE)
+
+cidemo(n=75)
+cidemo(n=75)
+cidemo(n=400)
+cidemo(n=400)
 ```
 
-```{r incon}
-prob.incon.sg = function(n, null.delta, 
-                    theta0=0, 
-                    theta=0,  
-                    V=1,
-                    alpha=0.05){
-  results = rep(NA, length(n))
-  
-  con.large = which(null.delta>(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
-  con.small = which(null.delta<=(qnorm(1-alpha/2)*sqrt(V)/sqrt(n)))
-  
-  results = 1-(prob.alt.sg(n, null.delta,
-                        theta0, 
-                        theta, 
-                        V,
-                        alpha)+
-                 prob.null.sg(n, null.delta,
-                           theta0, 
-                           theta,
-                           V, 
-                           alpha))
-  
-  results
-}
-```
-
-```{r}
-theta.1 = seq(-3,3,by=0.01)
-
-plot(theta.1, prob.alt.sg(n=50,
-            null.delta = 0,
-            theta=theta.1), type="l",
-     ylim=c(0,1),
-     xlab="Alternative",
-     ylab="Probability",
-     main="Prob of being consistent with alternative")
-lines(theta.1, prob.alt.sg(n=50,
-            null.delta = 0.5,
-            theta=theta.1),
-      col="green")
-lines(theta.1, prob.alt.sg(n=50,
-            null.delta = 1,
-            theta=theta.1),
-      col="blue")
-abline(h=0.05, lty=2)
-legend("bottomright",
-       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
-       col=c("black", "green","blue"), lty=1)
-
-```
-
-```{r}
-theta.1 = seq(-3,3,by=0.01)
-
-plot(theta.1, prob.null.sg(n=50,
-            null.delta = 0,
-            theta=theta.1), type="l",
-     ylim=c(0,1),
-     xlab="Alternative",
-     ylab="Probability",
-     main="Prob of being consistent with null")
-lines(theta.1, prob.null.sg(n=50,
-            null.delta = 0.5,
-            theta=theta.1),
-      col="green")
-lines(theta.1, prob.null.sg(n=50,
-            null.delta = 1,
-            theta=theta.1),
-      col="blue")
-abline(h=0.05, lty=2)
-legend("bottomright",
-       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
-       col=c("black", "green","blue"), lty=1)
-```
-
-```{r}
-theta.1 = seq(-3,3,by=0.01)
-
-plot(theta.1, prob.incon.sg(n=50,
-            null.delta = 0,
-            theta=theta.1), type="l",
-     ylim=c(0,1),
-     xlab="Alternative",
-     ylab="Probability",
-     main="Prob of being inconclusive")
-lines(theta.1, prob.incon.sg(n=50,
-            null.delta = 0.5,
-            theta=theta.1),
-      col="green")
-lines(theta.1, prob.incon.sg(n=50,
-            null.delta = 1,
-            theta=theta.1),
-      col="blue")
-abline(h=0.05, lty=2)
-legend("bottomright",
-       legend=c("Delta=0", "Delta=0.5", "Delta=1"),
-       col=c("black", "green","blue"), lty=1)
-```
+More details after lunch...
