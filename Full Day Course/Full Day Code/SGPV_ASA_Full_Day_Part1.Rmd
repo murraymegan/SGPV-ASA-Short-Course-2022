@@ -19,7 +19,7 @@ output:
     
 Resources:
 
-+ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course-2022](www.github.com/murraymegan/SGPV-ASA-Short-Course-2022)
 + RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
 + Interrupt or use Zoom chat for questions! 
 + For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
@@ -152,25 +152,25 @@ sgpvalue(est.lo = data.lo,
 ### Systolic Blood Pressure
 
 + SBP is reported to the nearest 2 mmHg
-+ Null Hypothesis: mean SPB is 146 mmHg
-+ Interval Null hypothesis: mean is 144 to 148 mmHg
++ Null Hypothesis: mean SPB is 145 mmHg
++ Interval Null hypothesis: mean is 143 to 147 mmHg
 + Results from 8 mock studies
 
 ```{r}
 #SBP Example Background
 
 # Data means
-xbar=c(141,142,143.5,144,146,145,145.5,146)
+xbar=c(141,142,143.5,144,146,145,145.5,146)-1
 
 # Data Standard Errors
 se=c(.5,1,.5,1,2.25,1.25,.25,.5)
 
 # Indifference Zone
-delta.a=144
-delta.b=148
+delta.a=143
+delta.b=147
 
 #Point Null
-h0=146
+h0=145
 
 # Estimated Uncertainty Interval Bounds
 lb<-xbar-1.96*se
@@ -230,7 +230,7 @@ plot(c(xbar,NA),1:(length(xbar)+1),xlim=c(min(lb,delta.a),max(ub)+5),xaxt='n',ya
     rect(delta.a,length(xbar)+1,delta.b,0,col=id.color,border=NA)
     
 abline(v=h0,lty=2,lwd=2,col='black')
-points(c(xbar,NA),1:(length(xbar)+1))
+points(c(xbar,NA),1:(length(xbar)+1), pch=20)
 	
 for(i in 1:8){
   lines(c(lb[i],ub[i]),c(i,i))

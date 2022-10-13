@@ -19,7 +19,7 @@ output:
     
 Resources:
 
-+ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course-2022](www.github.com/murraymegan/SGPV-ASA-Short-Course-2022)
 + RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
 + Interrupt or use Zoom chat for questions! 
 + For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
@@ -44,7 +44,7 @@ data(lung)
 
 ## Part 3a
 
-### Implementation in R
+### ProSGPV Simulation
 
 + We first present an example by applying the ProSGPV algorithm to a simulated dataset by use of gen.sim.data function.
 
@@ -116,6 +116,69 @@ The one-stage algorithm missed V4 and only selected three variables. What happen
 
 ```{r}
 plot(sgpv.out.1)
+```
+
+### ProSGPV Real Life Example
+
+We can load the Tehran Housing data `t.housing` stored in the package.
+
+A dataset containing Tehran housing data. The data set has 372 observations. There are 26 explanatory variables at baseline, including 7 project physical and financial features (V2-V8) and 19 economic variables and indices (V11-V29). The outcome (V9) is the sales price of a real estate single-family residential apartment.
+
+```{r}
+set.seed(999)
+
+# prepare the data
+x = t.housing[,-ncol(t.housing)]
+y = t.housing$V9
+
+# run ProSGPV
+out.sgpv.2 <- pro.sgpv(x = x, y = y)
+```
+
+The two-stage algorithm selects the following variables.
+
+```{r}
+out.sgpv.2
+```
+
++ V9: Actual sales price (outcome)
++ V8: Price of the unit at the beginning of the project per square meter
++ V12: Building services index for preselected base year
++ V13: Wholesale price index of building materials for the base year
++ V15: Cumulative liquidity
++ V17: Land price index for the base year
++ V26: CPI of housing, water, fuel & power in the base year
+
+We can view the summary of the final model.
+
+```{r}
+summary(out.sgpv.2)
+```
+
+Coefficient estimates can be extracted by use of coef.
+
+```{r}
+coef(out.sgpv.2)
+```
+
+In-sample prediction can be made using S3 method predict and an external sample can be provided to make out-of-sample prediction with an argument of newx in the predict function.
+
+```{r}
+head(predict(out.sgpv.2))
+```
+
+S3 method plot can be used to visualize the variable selection process.
+
+First, we plot the full solution path with point estimates and 95% confidence intervals. Note that the null region is in grey. The selected variables are colored blue on the y-axis. `lambda.max` controls the limit of the X-axis.
+
+```{r}
+plot(out.sgpv.2, lambda.max = 0.01)
+```
+
+Alternatively, we can plot the confidence bound that is closer to the null.
+
+```{r}
+plot(out.sgpv.2,lpv=1,lambda.max=0.01)
 ```
 
 ## Part 3b

@@ -19,7 +19,7 @@ output:
     
 Resources:
 
-+ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course-2022](www.github.com/murraymegan/SGPV-ASA-Short-Course-2022)
 + RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
 + Interrupt or use Zoom chat for questions! 
 + For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
@@ -548,7 +548,8 @@ fdrisk(sgpval = 0,
        null.space = 0,  
        alt.weights = 'Uniform', 
        alt.space = 2.5 + c(-1,1)*qnorm(1-0.041/2)*0.8,  
-       interval.type = 'likelihood',  interval.level = 1/8)
+       interval.type = 'likelihood',  
+       interval.level = 1/8)
 
 # false confirmation risk example
 fdrisk(sgpval = 1,  
@@ -559,7 +560,8 @@ fdrisk(sgpval = 1,
        null.space = 0.01 + c(-1,1)*qnorm(1-0.041/2)*0.15, 
        alt.weights = 'Uniform', 
        alt.space = c(log(1.5), 1.25*log(1.5)), 
-       interval.type = 'likelihood',  interval.level = 1/8)
+       interval.type = 'likelihood',  
+       interval.level = 1/8)
 
 ###
 ##
