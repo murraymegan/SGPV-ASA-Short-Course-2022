@@ -14,15 +14,15 @@ output:
 
 + Jeffrey D. Blume, PhD
     + School of Data Science, University of Virginia
-+ Megan H. Murray, almost PhD (July 6th defense)
++ Megan H. Murray, PhD
     + Department of Biostatistics, Vanderbilt University
     
 Resources:
 
-+ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course](www.github.com/murraymegan/SGPV-ASA-Short-Course)
++ GitHub with Slides and Code: [www.github.com/murraymegan/SGPV-ASA-Short-Course-2022](www.github.com/murraymegan/SGPV-ASA-Short-Course-2022)
 + RStudio Desktop: [www.rstudio.com/products/rstudio/download](www.rstudio.com/products/rstudio/download)  
 + Interrupt or use Zoom chat for questions! 
-+ For technical difficulties email Megan: [megan.c.hollister@vanderbilt.edu](mailto:megan.c.hollister@vanderbilt.edu)
+
 
 ```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
 knitr::opts_chunk$set(message=FALSE, warning=FALSE, echo=TRUE)
@@ -74,9 +74,77 @@ Functions Included:
 
 # Part 1
 
-## Part 1a
+## COVID Clinical Trial
 
-### Systolic Blood Pressure
++ Randomized 1,591 patients to ivermectin treatment or placebo
++ Mean time spent unwell was estimated using a longitudinal ordinal regression model;   range was 0 to 14 days
++ Patients reported each day their symptoms and severity, health care visits, and medications. 
++ “The difference in the amount of time spent feeling unwell with COVID was estimated to be 0.49 days in favor of ivermectin with a 95% credible interval of (0.15, 0.82).” 
++ [Link to Preprint](https://www.medrxiv.org/content/10.1101/2022.06.10.22276252v1)
+
+```{r message=FALSE, warning=FALSE}
+#Setup
+theta0 = 0
+point = 0.49 
+data.lo = 0.15
+data.hi = 0.82 
+```
+
+#### 3 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.125,
+         null.hi = 0.125)
+```
+
+#### 5 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.2083,
+         null.hi = 0.2083)
+```
+
+#### 6 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.25,
+         null.hi = 0.25)
+```
+
+#### 12 hours difference {-}
+
+```{r}
+sgpvalue(est.lo =data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.5,
+         null.hi = 0.5)
+```
+
+#### 18 hours difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -0.75,
+         null.hi = 0.75)
+```
+
+#### 1 day difference {-}
+
+```{r}
+sgpvalue(est.lo = data.lo, 
+         est.hi = data.hi,
+         null.lo = -1,
+         null.hi = 1)
+```
+
+## Systolic Blood Pressure
 
 + SBP is reported to the nearest 2 mmHg
 + Null Hypothesis: mean SPB is 146 mmHg
@@ -172,7 +240,7 @@ axis(side=1,at=seq(144,148,2))	# to re-draw axis
 mtext(side=1,"Systolic blood pressure (mmHg)",line=2.5)
 ```
 
-### BOMAMI
+## BOMAMI
 
 + European Heart Journal (2011): [https://academic.oup.com/eurheartj/article/32/14/1748/527618](https://academic.oup.com/eurheartj/article/32/14/1748/527618)
 + Randomized multicenter study
@@ -190,26 +258,6 @@ sgpvalue(est.lo=0.967,
          est.hi=7.286, 
          null.lo=0.9, 
          null.hi=1.11)$p.delta
-```
-
-#### Risk Ratio {-}
-
-```{r}
-## RR
-sgpvalue(est.lo=0.953, 
-         est.hi=4.589, 
-         null.lo=0.9, 
-         null.hi=1.11)$p.delta
-```
-
-#### Risk Ratio Difference {-}
-
-```{r}
-## RD
-sgpvalue(est.lo=0.003, 
-         est.hi=0.352, 
-         null.lo=-0.1, 
-         null.hi=0.1)$p.delta
 ```
 
 #### Logistic Regression with Null Zone: (0.9, 1.11) {-}
@@ -267,7 +315,7 @@ kable(cbind(c("Variable",
   kable_styling(c("striped", "bordered"))
 ```
 
-### Lung Cancer Survival
+## Lung Cancer Survival
 
 + Survival time in patients with advanced lung cancer (days)
 + Potential for gender dissimilarities
@@ -357,78 +405,8 @@ par(xpd=FALSE)
 legend(675,0.37,c("Difference","95% CI"),col=c("black","red"),lty=c(1,2),lwd=2,bty="n")
 ```
 
-### COVID Clinical Trial
 
-+ Randomized 1,591 patients to ivermectin treatment or placebo
-+ Mean time spent unwell was estimated using a longitudinal ordinal regression model;   range was 0 to 14 days
-+ Patients reported each day their symptoms and severity, health care visits, and medications. 
-+ “The difference in the amount of time spent feeling unwell with COVID was estimated to be 0.49 days in favor of ivermectin with a 95% credible interval of (0.15, 0.82).”
-
-```{r message=FALSE, warning=FALSE}
-#Setup
-theta0 = 0
-point = 0.49 
-data.lo = 0.15
-data.hi = 0.82 
-```
-
-#### 3 hours difference {-}
-
-```{r}
-sgpvalue(est.lo = data.lo, 
-         est.hi = data.hi,
-         null.lo = -0.125,
-         null.hi = 0.125)
-```
-
-#### 5 hours difference {-}
-
-```{r}
-sgpvalue(est.lo = data.lo, 
-         est.hi = data.hi,
-         null.lo = -0.2083,
-         null.hi = 0.2083)
-```
-
-#### 6 hours difference {-}
-
-```{r}
-sgpvalue(est.lo = data.lo, 
-         est.hi = data.hi,
-         null.lo = -0.25,
-         null.hi = 0.25)
-```
-
-#### 12 hours difference {-}
-
-```{r}
-sgpvalue(est.lo =data.lo, 
-         est.hi = data.hi,
-         null.lo = -0.5,
-         null.hi = 0.5)
-```
-
-#### 18 hours difference {-}
-
-```{r}
-sgpvalue(est.lo = data.lo, 
-         est.hi = data.hi,
-         null.lo = -0.75,
-         null.hi = 0.75)
-```
-
-#### 1 day difference {-}
-
-```{r}
-sgpvalue(est.lo = data.lo, 
-         est.hi = data.hi,
-         null.lo = -1,
-         null.hi = 1)
-```
-
-## Part 1b
-
-### High Dimensional Data: Leukemia gene expression
+## High Dimensional Data: Leukemia gene expression
 
 + Classifying acute leukemia by precursors (Golub 1999, Science)
 + 7128 genes ; 72 patients (47 ALL and 25 AML)
@@ -523,46 +501,8 @@ kable(tab.res)%>%
 
 + Findings: Bonferroni 264, SGPV 229
 
-```{r}
-#Put SGPVs on plot
-plot(c(1:nrow(leukstats)), 
-     sort(leukstats$p.value), 
-     ylim=c(0,1),
-     type="l",
-     main=" Inference by Tail area, delta = 0.3",
-     ylab="Probability",
-     xlab="Number of Rejected Hypotheses (index)")
-points(rank(leukstats$p.value,
-            ties.method = "first"),(res$p.delta), col="green",
-       cex=0.2)
-lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
-lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
-lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
 
-```
-
-```{r}
-#Put SGPVs on plot
-plot(c(1:nrow(leukstats)), 
-     sort(leukstats$p.value), 
-     ylim=c(0,1),
-     type="l",
-     main=" Inference by Tail area, delta = 0.05",
-     ylab="Probability",
-     xlab="Number of Rejected Hypotheses (index)")
-points(rank(leukstats$p.value,
-            ties.method = "first"),
-       sgpvalue(est.lo=leukstats$ci.lo, est.hi=leukstats$ci.hi,
-		null.lo=-0.05, null.hi=0.05)$p.delta, 
-		col="green",
-       cex=0.2)
-lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
-lines(c(1:nrow(leukstats)), sort(pmin(leukstats$p.value*nrow(leukstats),1)), col="red")
-lines(c(1:nrow(leukstats)), sort(leukstats$p.value), col="black")
-
-```
-
-### Prostate Cancer SNPs
+## Prostate Cancer SNPs
 
 + International Consortium for Prostate Cancer Genetics (Schaid and Chang 2055; ICPCG 2018)
 + 3,894 subjects: 2,511 cases & 1,383 controls 
